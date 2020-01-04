@@ -363,6 +363,8 @@ mod tests {
             COUNTER.inc();
             assert_eq!(COUNTER.get(), 1);
         }
+
+        // FIXME: Add tests concerning get and set.
     }
 
     #[cfg(test)]
@@ -426,5 +428,7 @@ mod tests {
             COUNTER.reset();
             assert_eq!(COUNTER.get(), 0);
         }
+
+        // FIXME: Add entire test suite for concurrency.
     }
 }
