@@ -1,4 +1,4 @@
-mod global_counter {
+pub mod global_counter {
 
     pub mod primitive {
         use core::sync::atomic::{
@@ -84,6 +84,7 @@ mod global_counter {
         }
 
         impl<T: Countable> Counter<T> {
+            
             #[allow(dead_code)]
             #[inline]
             pub fn new(val: T) -> Counter<T> {
@@ -128,7 +129,7 @@ mod global_counter {
 /// as well as its supertrait `Inc`.
 /// Implementations for integer primitives are supplied,
 /// however primitive Counters from `global_counter::primitive` should be preferred for performance.
-mod countable {
+pub mod countable {
 
     /// This trait abstracts over incrementing behaviour.
     /// Implemented for standard integer types.
@@ -429,6 +430,184 @@ mod tests {
             assert_eq!(COUNTER.get(), 0);
         }
 
-        // FIXME: Add entire test suite for concurrency.
+        #[test]
+        fn count_to_five_single_threaded() {
+            static COUNTER: CounterU32 = CounterU32::new(0);
+            assert_eq!(COUNTER.get(), 0);
+            COUNTER.inc();
+            assert_eq!(COUNTER.get(), 1);
+            COUNTER.inc();
+            assert_eq!(COUNTER.get(), 2);
+            COUNTER.inc();
+            assert_eq!(COUNTER.get(), 3);
+            COUNTER.inc();
+            assert_eq!(COUNTER.get(), 4);
+            COUNTER.inc();
+            assert_eq!(COUNTER.get(), 5);
+        }
+
+        #[test]
+        fn count_to_50000_single_threaded() {
+            static COUNTER: CounterU32 = CounterU32::new(0);
+            assert_eq!(COUNTER.get(), 0);
+
+            for _ in 0..50000 {
+                COUNTER.inc();
+            }
+
+            assert_eq!(COUNTER.get(), 50000);
+        }
+
+        #[test]
+        fn count_to_five_seq_threaded() {
+            static COUNTER: CounterU32 = CounterU32::new(0);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            t_0.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 1);
+
+            let t_1 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            t_1.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 2);
+
+            let t_2 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            t_2.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 3);
+
+            let t_3 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            t_3.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 4);
+
+            let t_4 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            t_4.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 5);
+        }
+
+        #[test]
+        fn count_to_50000_seq_threaded() {
+            static COUNTER: CounterU32 = CounterU32::new(0);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_0.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 10000);
+
+            let t_1 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_1.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 20000);
+
+            let t_2 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_2.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 30000);
+
+            let t_3 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_3.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 40000);
+
+            let t_4 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_4.join().expect("Err joining thread");
+            assert_eq!(COUNTER.get(), 50000);
+        }
+
+        #[test]
+        fn count_to_five_par_threaded() {
+            static COUNTER: CounterU32 = CounterU32::new(0);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            let t_1 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            let t_2 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            let t_3 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+            let t_4 = std::thread::spawn(|| {
+                COUNTER.inc();
+            });
+
+            t_0.join().expect("Err joining thread");
+            t_1.join().expect("Err joining thread");
+            t_2.join().expect("Err joining thread");
+            t_3.join().expect("Err joining thread");
+            t_4.join().expect("Err joining thread");
+
+            assert_eq!(COUNTER.get(), 5);
+        }
+
+        #[test]
+        fn count_to_50000_par_threaded() {
+            static COUNTER: CounterU32 = CounterU32::new(0);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_1 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_2 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_3 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_4 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+
+            t_0.join().expect("Err joining thread");
+            t_1.join().expect("Err joining thread");
+            t_2.join().expect("Err joining thread");
+            t_3.join().expect("Err joining thread");
+            t_4.join().expect("Err joining thread");
+
+            assert_eq!(COUNTER.get(), 50000);
+        }
     }
 }
