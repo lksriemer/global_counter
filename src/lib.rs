@@ -61,18 +61,19 @@ pub mod global_counter {
 
     pub mod generic {
         use crate::countable::Countable;
-        use parking_lot::RwLock;
+        use parking_lot::Mutex;
+        use std::sync::Arc;
 
         /// A generic Counter, counting over `Countables`.
         ///
-        /// This counter is `Send + Sync`, meaning it is globally available from all threads, concurrently.
+        /// This counter is `Send + Sync` regardless of its contents, meaning it is always globally available from all threads, concurrently.
         ///
         /// Implement `Countable` for your own types, by implementing `Default + Clone + Inc`.
         /// Implementing `Inc` requires you to supply an impl for incrementing an element of your type.
         ///
-        /// This implementation is based on `parking_lot::RwLock`.
+        /// This implementation is based on `parking_lot::Mutex`.
         #[derive(Debug, Default)]
-        pub struct Counter<T: Countable>(RwLock<T>, Vec<T>);
+        pub struct Counter<T: Countable>(Arc<Mutex<T>>);
 
         #[macro_export]
         macro_rules! global_counter {
@@ -84,11 +85,10 @@ pub mod global_counter {
         }
 
         impl<T: Countable> Counter<T> {
-
             #[allow(dead_code)]
             #[inline]
             pub fn new(val: T) -> Counter<T> {
-                Counter(RwLock::new(val), Vec::new())
+                Counter(Arc::new(Mutex::new(val)))
             }
 
             #[allow(dead_code)]
@@ -100,13 +100,13 @@ pub mod global_counter {
             #[allow(dead_code)]
             #[inline]
             pub fn set(&self, val: T) {
-                *self.0.write() = val;
+                *self.0.lock() = val;
             }
 
             #[allow(dead_code)]
             #[inline]
             pub fn get_cloned(&self) -> T {
-                (*self.0.read()).clone()
+                (*self.0.lock()).clone()
             }
 
             #[allow(dead_code)]
@@ -119,8 +119,8 @@ pub mod global_counter {
 
             #[allow(dead_code)]
             #[inline]
-            pub fn inc(&self){
-                (*self.0.write()).inc();
+            pub fn inc(&self) {
+                (*self.0.lock()).inc();
             }
         }
     }
@@ -141,6 +141,7 @@ pub mod countable {
 
     /// Implementing this trait for T enables a generic Counter to count over T.
     pub trait Countable: Default + Clone + Inc {}
+    impl<T: Default + Clone + Inc> Countable for T {}
 
     macro_rules! imp {
         ($( $t:ty ) *) => {
@@ -151,7 +152,6 @@ pub mod countable {
                         *self += 1;
                     }
                 }
-                impl Countable for $t {}
             )*
         };
     }
@@ -183,6 +183,79 @@ mod tests {
             assert_eq!(COUNTER.get_cloned(), 4);
             COUNTER.inc();
             assert_eq!(COUNTER.get_cloned(), 5);
+        }
+
+        #[derive(Clone, Default, PartialEq, Eq, Debug)]
+        struct Baz<T> {
+            i: i32,
+            u: i32,
+            _marker: std::marker::PhantomData<T>,
+        }
+
+        impl<T> crate::countable::Inc for Baz<T> {
+            fn inc(&mut self) {
+                self.i += 1;
+            }
+        }
+
+        type Bar = Baz<std::cell::RefCell<u32>>;
+
+        #[test]
+        fn count_struct() {
+            global_counter!(COUNTER, Bar);
+            assert_eq!(
+                COUNTER.get_cloned(),
+                Baz {
+                    i: 0,
+                    u: 0,
+                    _marker: core::marker::PhantomData
+                }
+            );
+            COUNTER.inc();
+            assert_eq!(
+                COUNTER.get_cloned(),
+                Baz {
+                    i: 1,
+                    u: 0,
+                    _marker: core::marker::PhantomData
+                }
+            );
+            COUNTER.inc();
+            assert_eq!(
+                COUNTER.get_cloned(),
+                Baz {
+                    i: 2,
+                    u: 0,
+                    _marker: core::marker::PhantomData
+                }
+            );
+            COUNTER.inc();
+            assert_eq!(
+                COUNTER.get_cloned(),
+                Baz {
+                    i: 3,
+                    u: 0,
+                    _marker: core::marker::PhantomData
+                }
+            );
+            COUNTER.inc();
+            assert_eq!(
+                COUNTER.get_cloned(),
+                Baz {
+                    i: 4,
+                    u: 0,
+                    _marker: core::marker::PhantomData
+                }
+            );
+            COUNTER.inc();
+            assert_eq!(
+                COUNTER.get_cloned(),
+                Baz {
+                    i: 5,
+                    u: 0,
+                    _marker: core::marker::PhantomData
+                }
+            );
         }
 
         #[test]
