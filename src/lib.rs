@@ -84,7 +84,7 @@ pub mod global_counter {
         }
 
         impl<T: Countable> Counter<T> {
-            
+
             #[allow(dead_code)]
             #[inline]
             pub fn new(val: T) -> Counter<T> {
@@ -105,7 +105,7 @@ pub mod global_counter {
 
             #[allow(dead_code)]
             #[inline]
-            pub fn get(&self) -> T {
+            pub fn get_cloned(&self) -> T {
                 (*self.0.read()).clone()
             }
 
@@ -171,71 +171,71 @@ mod tests {
         #[test]
         fn count_to_five_single_threaded() {
             global_counter!(COUNTER, u32);
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 1);
+            assert_eq!(COUNTER.get_cloned(), 1);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 2);
+            assert_eq!(COUNTER.get_cloned(), 2);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 3);
+            assert_eq!(COUNTER.get_cloned(), 3);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 4);
+            assert_eq!(COUNTER.get_cloned(), 4);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 5);
+            assert_eq!(COUNTER.get_cloned(), 5);
         }
 
         #[test]
         fn count_to_50000_single_threaded() {
             global_counter!(COUNTER, u32);
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
 
             for _ in 0..50000 {
                 COUNTER.inc();
             }
 
-            assert_eq!(COUNTER.get(), 50000);
+            assert_eq!(COUNTER.get_cloned(), 50000);
         }
 
         #[test]
         fn count_to_five_seq_threaded() {
             global_counter!(COUNTER, u32);
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
                 COUNTER.inc();
             });
             t_0.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 1);
+            assert_eq!(COUNTER.get_cloned(), 1);
 
             let t_1 = std::thread::spawn(|| {
                 COUNTER.inc();
             });
             t_1.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 2);
+            assert_eq!(COUNTER.get_cloned(), 2);
 
             let t_2 = std::thread::spawn(|| {
                 COUNTER.inc();
             });
             t_2.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 3);
+            assert_eq!(COUNTER.get_cloned(), 3);
 
             let t_3 = std::thread::spawn(|| {
                 COUNTER.inc();
             });
             t_3.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 4);
+            assert_eq!(COUNTER.get_cloned(), 4);
 
             let t_4 = std::thread::spawn(|| {
                 COUNTER.inc();
             });
             t_4.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 5);
+            assert_eq!(COUNTER.get_cloned(), 5);
         }
 
         #[test]
         fn count_to_50000_seq_threaded() {
             global_counter!(COUNTER, u32);
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
                 for _ in 0..10000 {
@@ -243,7 +243,7 @@ mod tests {
                 }
             });
             t_0.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 10000);
+            assert_eq!(COUNTER.get_cloned(), 10000);
 
             let t_1 = std::thread::spawn(|| {
                 for _ in 0..10000 {
@@ -251,7 +251,7 @@ mod tests {
                 }
             });
             t_1.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 20000);
+            assert_eq!(COUNTER.get_cloned(), 20000);
 
             let t_2 = std::thread::spawn(|| {
                 for _ in 0..10000 {
@@ -259,7 +259,7 @@ mod tests {
                 }
             });
             t_2.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 30000);
+            assert_eq!(COUNTER.get_cloned(), 30000);
 
             let t_3 = std::thread::spawn(|| {
                 for _ in 0..10000 {
@@ -267,7 +267,7 @@ mod tests {
                 }
             });
             t_3.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 40000);
+            assert_eq!(COUNTER.get_cloned(), 40000);
 
             let t_4 = std::thread::spawn(|| {
                 for _ in 0..10000 {
@@ -275,13 +275,13 @@ mod tests {
                 }
             });
             t_4.join().expect("Err joining thread");
-            assert_eq!(COUNTER.get(), 50000);
+            assert_eq!(COUNTER.get_cloned(), 50000);
         }
 
         #[test]
         fn count_to_five_par_threaded() {
             global_counter!(COUNTER, u32);
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
                 COUNTER.inc();
@@ -305,13 +305,13 @@ mod tests {
             t_3.join().expect("Err joining thread");
             t_4.join().expect("Err joining thread");
 
-            assert_eq!(COUNTER.get(), 5);
+            assert_eq!(COUNTER.get_cloned(), 5);
         }
 
         #[test]
         fn count_to_50000_par_threaded() {
             global_counter!(COUNTER, u32);
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
                 for _ in 0..10000 {
@@ -345,27 +345,27 @@ mod tests {
             t_3.join().expect("Err joining thread");
             t_4.join().expect("Err joining thread");
 
-            assert_eq!(COUNTER.get(), 50000);
+            assert_eq!(COUNTER.get_cloned(), 50000);
         }
 
         #[test]
         fn reset() {
             global_counter!(COUNTER, u32);
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 1);
+            assert_eq!(COUNTER.get_cloned(), 1);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 2);
+            assert_eq!(COUNTER.get_cloned(), 2);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 3);
+            assert_eq!(COUNTER.get_cloned(), 3);
 
             COUNTER.reset();
-            assert_eq!(COUNTER.get(), 0);
+            assert_eq!(COUNTER.get_cloned(), 0);
             COUNTER.inc();
-            assert_eq!(COUNTER.get(), 1);
+            assert_eq!(COUNTER.get_cloned(), 1);
         }
 
-        // FIXME: Add tests concerning get and set.
+        // FIXME: Add tests concerning get_cloned and set.
     }
 
     #[cfg(test)]
