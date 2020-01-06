@@ -72,7 +72,7 @@ pub mod global_counter {
         ///
         /// This implementation is based on `parking_lot::RwLock`.
         #[derive(Debug, Default)]
-        pub struct Counter<T: Countable>(RwLock<T>);
+        pub struct Counter<T: Countable>(RwLock<T>, Vec<T>);
 
         #[macro_export]
         macro_rules! global_counter {
@@ -88,7 +88,7 @@ pub mod global_counter {
             #[allow(dead_code)]
             #[inline]
             pub fn new(val: T) -> Counter<T> {
-                Counter(RwLock::new(val))
+                Counter(RwLock::new(val), Vec::new())
             }
 
             #[allow(dead_code)]
@@ -111,15 +111,16 @@ pub mod global_counter {
 
             #[allow(dead_code)]
             #[inline]
-            pub fn inc(&self) -> T {
-                // Use additional scope, to make sure read guard is dropped.
-                // Alternatively, std::mem::drop could be called manually.
-                let prev = {
-                    let read_guard = self.0.read();
-                    (*read_guard).clone()
-                };
-                (*self.0.write()).inc();
+            pub fn inc_cloning(&self) -> T {
+                let prev = self.get_cloned();
+                self.inc();
                 prev
+            }
+
+            #[allow(dead_code)]
+            #[inline]
+            pub fn inc(&self){
+                (*self.0.write()).inc();
             }
         }
     }
