@@ -11,8 +11,8 @@ pub mod global_counter {
                 $(
                     /// This is a primitive Counter, implemented using atomics from `std::sync::atomic`.
                     ///
-                    /// Regarding atomic ordering, `Ordering::SeqCst` is currently used whenever possible,
-                    /// but this is an unstable implementation detail that should not be relied on for correctness.
+                    /// Regarding atomic ordering, `Ordering::SeqCst` is currently used whenever possible.
+                    /// This unstable detail should never be relied on for soundness.
                     ///
                     /// Please note that Atomics may, depending on your compilation target, [be implemented
                     /// using Mutexes](https://llvm.org/docs/Atomics.html),
@@ -21,6 +21,8 @@ pub mod global_counter {
                     pub struct $counter($atomic);
 
                     impl $counter{
+
+                        // TODO: Add method documentation.
 
                         #[allow(dead_code)]
                         #[inline]
@@ -71,9 +73,11 @@ pub mod global_counter {
         /// Implement `Countable` for your own types, by implementing `Default + Clone + Inc`.
         /// Implementing `Inc` requires you to supply an impl for incrementing an element of your type.
         ///
-        /// This implementation is based on `parking_lot::Mutex`.
+        /// Implementation-wise, this is basically a Mutex wrapped in an Arc.
         #[derive(Debug, Default)]
         pub struct Counter<T: Countable>(Arc<Mutex<T>>);
+
+        // TODO: Add macro decumentation.
 
         #[macro_export]
         macro_rules! global_counter {
@@ -83,6 +87,8 @@ pub mod global_counter {
                 }
             };
         }
+
+        // TODO: Add method documentation.
 
         impl<T: Countable> Counter<T> {
             #[allow(dead_code)]
@@ -139,7 +145,8 @@ pub mod countable {
         fn inc(&mut self);
     }
 
-    /// Implementing this trait for T enables a generic Counter to count over T.
+    /// This trait signifies it can be counted by a generic counter.
+    /// It is auto-implemented for all types implementing `Default + Clone + Inc`.
     pub trait Countable: Default + Clone + Inc {}
     impl<T: Default + Clone + Inc> Countable for T {}
 
