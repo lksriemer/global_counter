@@ -90,10 +90,12 @@ pub mod global_counter {
 
         /// Creates a new generic, global counter, starting from its (inherited) default value.
         /// 
+        /// This macro will fail compilation if the given type is not `Default`.
+        /// 
         /// This macro is exported at the crates top-level.
         #[macro_export]
         macro_rules! global_default_counter {
-            ($name:ident, $type:ident) => {
+            ($name:ident, $type:ty) => {
                 lazy_static::lazy_static! {
                     static ref $name : global_counter::generic::Counter<$type> = global_counter::generic::Counter::default();
                 }
@@ -123,25 +125,27 @@ pub mod global_counter {
             /// 
             /// # Good Example - 
             /// ```
-            /// TODO: Introduce good example.
+            /// // TODO: Introduce good example.
             /// ```
             /// 
             /// # Bad Example - Deadlock
-            /// ```
+            /// ```no_run
+            /// # #[macro_use] use crate::global_counter::*;
             /// // We spawn a new thread. This thread will try lockig the counter twice, causing a deadlock.
             /// std::thread::spawn(move || {
             /// 
             ///     // u32 is actually Copy, therefore also Clone, this is just for illustration purposes.
-            ///     global_counter!(COUNTER, u32);
+            ///     global_default_counter!(COUNTER, u32);
             ///     
-            ///     // The borrow is now alive, and this thread holds a lock onto the Counter.
+            ///     // The borrow is now alive, and this thread now holds a lock onto the Counter.
             ///     let counter_value_borrowed = COUNTER.get_borrowed();
-            ///     
+            ///     assert_eq!(0, *counter_value_borrowed);
+            /// 
             ///     // Now we try to lock the counter again, but we already hold a lock in the current thread! Deadlock!
             ///     COUNTER.inc();
             ///     
             ///     // Here we use `counter_value_borrowed` again, ensuring it can't be dropped "fortunately".
-            ///     let counter_value_borrowed_alias = counter_value_borrowed;
+            ///     assert_eq!(0, *counter_value_borrowed);
             /// });
             /// ```
             #[allow(dead_code)]
@@ -165,13 +169,21 @@ pub mod global_counter {
 
         impl<T : Inc + Clone> Counter<T>{
 
-            /// Implemented for counter
+            /// Implemented for `Counter` only when T is `Clone`.
+            /// 
+            /// This avoid the troubles of `get_borrowed` by cloning the current value. 
+            /// 
+            /// Creating a deadlock using this API should, contrasting to `get_borrowed`, be impossible.
+            /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordable.
             #[allow(dead_code)]
             #[inline]
             pub fn get_cloned(&self) -> T {
                 (*self.0.lock()).clone()
             }
 
+            /// Implemented for `Counter` only when T is `Clone`.
+            /// 
+            /// Increments the Counter, returning the previous value.
             #[allow(dead_code)]
             #[inline]
             pub fn inc_cloning(&self) -> T {
@@ -182,6 +194,8 @@ pub mod global_counter {
         }
 
         impl<T: Inc + Default> Counter<T>{
+
+            /// Implemented for `Counter` only when T is `Default`.
             #[allow(dead_code)]
             #[inline]
             pub fn reset(&self) {
