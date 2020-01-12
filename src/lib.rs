@@ -106,18 +106,44 @@ pub mod global_counter {
 
             /// Creates a new generic Counter
             /// 
-            /// This function is not const yet.
+            /// This function is not const yet. As soon as `const fn` [parking_lot::Mutex](https://docs.rs/parking_lot/0.10.0/parking_lot/type.Mutex.html)`::new()` is stable, this will be as well.
             #[allow(dead_code)]
             #[inline]
             pub fn new(val: T) -> Counter<T> {
                 Counter(Mutex::new(val))
             }
 
-            /// Returns (basically) an immutable reference to the underlying value.
+            /// Returns (basically) an immutable borrow of the underlying value.
+            /// Best make sure this borrow goes dead before any other accesses to the counter are made.
             /// 
-            /// This is the only way to access the current value of the counter, if T is not `Clone`.
+            /// If `T` is not [Clone](std::Clone), this is the only way to access the current value of the counter.
             /// 
+            /// **Warning**: Attempting to access the counter from the thread holding this borrow **will** result in a deadlock.
+            /// As long as this borrow is alive, no accesses to the counter from any thread are possible.
             /// 
+            /// # Good Example - 
+            /// ```
+            /// TODO: Introduce good example.
+            /// ```
+            /// 
+            /// # Bad Example - Deadlock
+            /// ```
+            /// // We spawn a new thread. This thread will try lockig the counter twice, causing a deadlock.
+            /// std::thread::spawn(move || {
+            /// 
+            ///     // u32 is actually Copy, therefore also Clone, this is just for illustration purposes.
+            ///     global_counter!(COUNTER, u32);
+            ///     
+            ///     // The borrow is now alive, and this thread holds a lock onto the Counter.
+            ///     let counter_value_borrowed = COUNTER.get_borrowed();
+            ///     
+            ///     // Now we try to lock the counter again, but we already hold a lock in the current thread! Deadlock!
+            ///     COUNTER.inc();
+            ///     
+            ///     // Here we use `counter_value_borrowed` again, ensuring it can't be dropped "fortunately".
+            ///     let counter_value_borrowed_alias = counter_value_borrowed;
+            /// });
+            /// ```
             #[allow(dead_code)]
             #[inline]
             pub fn get_borrowed(&self) -> impl std::ops::Deref<Target = T> + '_ {
