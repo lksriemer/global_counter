@@ -62,9 +62,8 @@ pub mod global_counter {
     }
 
     pub mod generic {
-        use crate::countable::Countable;
+        use crate::countable::Inc;
         use parking_lot::Mutex;
-        use std::sync::Arc;
 
         /// A generic Counter, counting over `Countables`.
         ///
@@ -75,12 +74,25 @@ pub mod global_counter {
         ///
         /// Implementation-wise, this is basically a Mutex wrapped in an Arc.
         #[derive(Debug, Default)]
-        pub struct Counter<T: Countable>(Arc<Mutex<T>>);
+        pub struct Counter<T: Inc>(Mutex<T>);
 
-        // TODO: Add macro decumentation.
-
+        /// Creates a new generic, global counter, starting from the given value.
+        /// 
+        /// This macro is exported at the crates top-level.
         #[macro_export]
         macro_rules! global_counter {
+            ($name:ident, $type:ident, $value:ident) => {
+                lazy_static::lazy_static! {
+                    static ref $name : global_counter::generic::Counter<$type> = global_counter::generic::Counter::new($value);
+                }
+            };
+        }
+
+        /// Creates a new generic, global counter, starting from its (inherited) default value.
+        /// 
+        /// This macro is exported at the crates top-level.
+        #[macro_export]
+        macro_rules! global_default_counter {
             ($name:ident, $type:ident) => {
                 lazy_static::lazy_static! {
                     static ref $name : global_counter::generic::Counter<$type> = global_counter::generic::Counter::default();
@@ -90,17 +102,26 @@ pub mod global_counter {
 
         // TODO: Add method documentation.
 
-        impl<T: Countable> Counter<T> {
+        impl<T: Inc> Counter<T> {
+
+            /// Creates a new generic Counter
+            /// 
+            /// This function is not const yet.
             #[allow(dead_code)]
             #[inline]
             pub fn new(val: T) -> Counter<T> {
-                Counter(Arc::new(Mutex::new(val)))
+                Counter(Mutex::new(val))
             }
 
+            /// Returns (basically) an immutable reference to the underlying value.
+            /// 
+            /// This is the only way to access the current value of the counter, if T is not `Clone`.
+            /// 
+            /// 
             #[allow(dead_code)]
             #[inline]
-            pub fn reset(&self) {
-                self.set(T::default());
+            pub fn get_borrowed(&self) -> impl std::ops::Deref<Target = T> + '_ {
+                self.0.lock()
             }
 
             #[allow(dead_code)]
@@ -109,6 +130,16 @@ pub mod global_counter {
                 *self.0.lock() = val;
             }
 
+            #[allow(dead_code)]
+            #[inline]
+            pub fn inc(&self) {
+                (*self.0.lock()).inc();
+            }
+        }
+
+        impl<T : Inc + Clone> Counter<T>{
+
+            /// Implemented for counter
             #[allow(dead_code)]
             #[inline]
             pub fn get_cloned(&self) -> T {
@@ -122,11 +153,13 @@ pub mod global_counter {
                 self.inc();
                 prev
             }
+        }
 
+        impl<T: Inc + Default> Counter<T>{
             #[allow(dead_code)]
             #[inline]
-            pub fn inc(&self) {
-                (*self.0.lock()).inc();
+            pub fn reset(&self) {
+                self.set(T::default());
             }
         }
     }
@@ -144,11 +177,6 @@ pub mod countable {
     pub trait Inc {
         fn inc(&mut self);
     }
-
-    /// This trait signifies it can be counted by a generic counter.
-    /// It is auto-implemented for all types implementing `Default + Clone + Inc`.
-    pub trait Countable: Default + Clone + Inc {}
-    impl<T: Default + Clone + Inc> Countable for T {}
 
     macro_rules! imp {
         ($( $t:ty ) *) => {
@@ -178,7 +206,7 @@ mod tests {
 
         #[test]
         fn count_to_five_single_threaded() {
-            global_counter!(COUNTER, u32);
+            global_default_counter!(COUNTER, u32);
             assert_eq!(COUNTER.get_cloned(), 0);
             COUNTER.inc();
             assert_eq!(COUNTER.get_cloned(), 1);
@@ -209,7 +237,7 @@ mod tests {
 
         #[test]
         fn count_struct() {
-            global_counter!(COUNTER, Bar);
+            global_default_counter!(COUNTER, Bar);
             assert_eq!(
                 COUNTER.get_cloned(),
                 Baz {
@@ -267,7 +295,7 @@ mod tests {
 
         #[test]
         fn count_to_50000_single_threaded() {
-            global_counter!(COUNTER, u32);
+            global_default_counter!(COUNTER, u32);
             assert_eq!(COUNTER.get_cloned(), 0);
 
             for _ in 0..50000 {
@@ -279,7 +307,7 @@ mod tests {
 
         #[test]
         fn count_to_five_seq_threaded() {
-            global_counter!(COUNTER, u32);
+            global_default_counter!(COUNTER, u32);
             assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
@@ -315,7 +343,7 @@ mod tests {
 
         #[test]
         fn count_to_50000_seq_threaded() {
-            global_counter!(COUNTER, u32);
+            global_default_counter!(COUNTER, u32);
             assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
@@ -361,7 +389,7 @@ mod tests {
 
         #[test]
         fn count_to_five_par_threaded() {
-            global_counter!(COUNTER, u32);
+            global_default_counter!(COUNTER, u32);
             assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
@@ -391,7 +419,7 @@ mod tests {
 
         #[test]
         fn count_to_50000_par_threaded() {
-            global_counter!(COUNTER, u32);
+            global_default_counter!(COUNTER, u32);
             assert_eq!(COUNTER.get_cloned(), 0);
 
             let t_0 = std::thread::spawn(|| {
@@ -431,7 +459,7 @@ mod tests {
 
         #[test]
         fn reset() {
-            global_counter!(COUNTER, u32);
+            global_default_counter!(COUNTER, u32);
             assert_eq!(COUNTER.get_cloned(), 0);
             COUNTER.inc();
             assert_eq!(COUNTER.get_cloned(), 1);
