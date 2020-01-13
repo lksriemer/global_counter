@@ -1,3 +1,5 @@
+//! This is a minimal library implementing global, thread-safe counters.
+
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
     use std::sync::atomic::{
@@ -66,7 +68,7 @@ pub mod primitive {
     primitive_counter![u8 AtomicU8 CounterU8, u16 AtomicU16 CounterU16, u32 AtomicU32 CounterU32, u64 AtomicU64 CounterU64, i8 AtomicI8 CounterI8, i16 AtomicI16 CounterI16, i32 AtomicI32 CounterI32, i64 AtomicI64 CounterI64];
 }
 
-/// This module contains a generic, thread-safe Counter and the accompanying `Inc` trait.
+/// This module contains a generic, thread-safe counter and the accompanying `Inc` trait.
 pub mod generic {
     use parking_lot::Mutex;
 
@@ -106,7 +108,7 @@ pub mod generic {
     ///
     /// This macro is exported at the crates top-level.
     ///
-    /// Example
+    /// # Example
     /// ```
     /// # #[macro_use] use crate::global_counter::*;
     /// type CountedType = u32;
@@ -133,7 +135,7 @@ pub mod generic {
     ///
     /// This macro is exported at the crates top-level.
     ///
-    /// /// Example
+    /// # Example
     /// ```
     /// # #[macro_use] use crate::global_counter::*;
     /// type CountedType = u32;
