@@ -1,5 +1,10 @@
 //! This is a minimal library implementing global, thread-safe counters.
 
+#[allow(unused_imports)]
+#[macro_use]
+extern crate lazy_static;
+extern crate parking_lot;
+
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
     use std::sync::atomic::{
@@ -122,12 +127,13 @@ pub mod generic {
     /// ```
     #[macro_export]
     macro_rules! global_counter {
-            ($name:ident, $type:ident, $value:ident) => {
-                lazy_static::lazy_static! {
-                    static ref $name : global_counter::generic::Counter<$type> = global_counter::generic::Counter::new($value);
-                }
-            };
-        }
+        ($name:ident, $type:ident, $value:ident) => {
+            lazy_static::lazy_static! {
+                static ref $name: global_counter::generic::Counter<$type> =
+                    global_counter::generic::Counter::new($value);
+            }
+        };
+    }
 
     /// Creates a new generic, global counter, starting from its (inherited) default value.
     ///
