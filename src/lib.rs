@@ -1,5 +1,8 @@
 //! This is a minimal library implementing global, thread-safe counters.
 
+extern crate lazy_static;
+pub use lazy_static::lazy_static;
+
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
     use std::sync::atomic::{
