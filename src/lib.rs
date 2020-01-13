@@ -1,4 +1,3 @@
-
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
     use std::sync::atomic::{
@@ -10,7 +9,7 @@ pub mod primitive {
             ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
                 $(
                     /// A primitive counter, implemented using atomics from `std::sync::atomic`.
-                    /// 
+                    ///
                     /// This counter makes all the same guarantees a generic counter does.
                     /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
                     ///
@@ -19,7 +18,7 @@ pub mod primitive {
                     ///
                     /// Please note that Atomics may, depending on your compilation target, [not be implemented using atomic instructions](https://llvm.org/docs/Atomics.html),
                     /// meaning lock-freendom can in the general case not be guaranteed.
-                    /// 
+                    ///
                     /// This counter should in general be superior in performance, compared to the equivalent generic counter.
                     #[derive(Debug, Default)]
                     pub struct $counter($atomic);
@@ -133,7 +132,7 @@ pub mod generic {
     /// This macro will fail compilation if the given type is not `Default`.
     ///
     /// This macro is exported at the crates top-level.
-    /// 
+    ///
     /// /// Example
     /// ```
     /// # #[macro_use] use crate::global_counter::*;
