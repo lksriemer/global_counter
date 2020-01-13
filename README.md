@@ -87,6 +87,8 @@ fn main() {
 }
 ```
 
+TODO: Add primitive counter example
+
 ## License
 
 Licensed under either of
