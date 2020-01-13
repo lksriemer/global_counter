@@ -1,9 +1,6 @@
 //! This is a minimal library implementing global, thread-safe counters.
 
-#[allow(unused_imports)] 
-#[macro_use(lazy_static)]
 pub extern crate lazy_static;
-
 pub extern crate parking_lot;
 
 /// This module contains atomic counters for primitive integer types.
@@ -130,6 +127,7 @@ pub mod generic {
     #[macro_export]
     macro_rules! global_counter {
         ($name:ident, $type:ident, $value:ident) => {
+            pub use lazy_static::lazy_static;
             lazy_static! {
                 static ref $name: global_counter::generic::Counter<$type> =
                     global_counter::generic::Counter::new($value);
@@ -158,6 +156,7 @@ pub mod generic {
     #[macro_export]
     macro_rules! global_default_counter {
         ($name:ident, $type:ty) => {
+            pub use lazy_static::lazy_static;
             lazy_static! {
                 static ref $name: generic::Counter<$type> = generic::Counter::default();
             }
