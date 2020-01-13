@@ -1,5 +1,7 @@
+
+/// This module contains atomic counters for primitive integer types.
 pub mod primitive {
-    use core::sync::atomic::{
+    use std::sync::atomic::{
         AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
         Ordering,
     };
@@ -8,49 +10,54 @@ pub mod primitive {
             ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
                 $(
                     /// A primitive counter, implemented using atomics from `std::sync::atomic`.
+                    /// 
+                    /// This counter makes all the same guarantees a generic counter does.
+                    /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
                     ///
                     /// Regarding atomic ordering, `Ordering::SeqCst` is currently used whenever possible.
                     /// This unstable detail should never be relied on for soundness.
                     ///
-                    /// Please note that Atomics may, depending on your compilation target, [be implemented
-                    /// using Mutexes](https://llvm.org/docs/Atomics.html),
+                    /// Please note that Atomics may, depending on your compilation target, [not be implemented using atomic instructions](https://llvm.org/docs/Atomics.html),
                     /// meaning lock-freendom can in the general case not be guaranteed.
+                    /// 
+                    /// This counter should in general be superior in performance, compared to the equivalent generic counter.
                     #[derive(Debug, Default)]
                     pub struct $counter($atomic);
 
                     impl $counter{
-
-                        // TODO: Add method documentation.
-
-                        /// 
+                        /// Creates a new primitive counter. Can be used in const contexts.
                         #[allow(dead_code)]
                         #[inline]
                         pub const fn new(val : $primitive) -> $counter{
                             $counter($atomic::new(val))
                         }
 
+                        /// Gets the current value of the counter.
                         #[allow(dead_code)]
                         #[inline]
                         pub fn get(&self) -> $primitive{
                             self.0.load(Ordering::SeqCst)
                         }
 
+                        /// Sets the counter to a new value.
                         #[allow(dead_code)]
                         #[inline]
                         pub fn set(&self, val : $primitive){
                             self.0.store(val, Ordering::SeqCst);
                         }
 
+                        /// Increments the counter by one.
                         #[allow(dead_code)]
                         #[inline]
                         pub fn inc(&self) -> $primitive{
                             self.0.fetch_add(1, Ordering::SeqCst)
                         }
 
+                        /// Resets the counter to zero.
                         #[allow(dead_code)]
                         #[inline]
                         pub fn reset(&self){
-                            self.0.store($primitive::default(), Ordering::SeqCst);
+                            self.0.store(0, Ordering::SeqCst);
                         }
                     }
                 )*
@@ -60,6 +67,7 @@ pub mod primitive {
     primitive_counter![u8 AtomicU8 CounterU8, u16 AtomicU16 CounterU16, u32 AtomicU32 CounterU32, u64 AtomicU64 CounterU64, i8 AtomicI8 CounterI8, i16 AtomicI16 CounterI16, i32 AtomicI32 CounterI32, i64 AtomicI64 CounterI64];
 }
 
+/// This module contains a generic, thread-safe Counter and the accompanying `Inc` trait.
 pub mod generic {
     use parking_lot::Mutex;
 
@@ -337,7 +345,7 @@ mod tests {
                 Baz {
                     i: 0,
                     u: 0,
-                    _marker: core::marker::PhantomData
+                    _marker: std::marker::PhantomData
                 }
             );
             COUNTER.inc();
@@ -346,7 +354,7 @@ mod tests {
                 Baz {
                     i: 1,
                     u: 0,
-                    _marker: core::marker::PhantomData
+                    _marker: std::marker::PhantomData
                 }
             );
             COUNTER.inc();
@@ -355,7 +363,7 @@ mod tests {
                 Baz {
                     i: 2,
                     u: 0,
-                    _marker: core::marker::PhantomData
+                    _marker: std::marker::PhantomData
                 }
             );
             COUNTER.inc();
@@ -364,7 +372,7 @@ mod tests {
                 Baz {
                     i: 3,
                     u: 0,
-                    _marker: core::marker::PhantomData
+                    _marker: std::marker::PhantomData
                 }
             );
             COUNTER.inc();
@@ -373,7 +381,7 @@ mod tests {
                 Baz {
                     i: 4,
                     u: 0,
-                    _marker: core::marker::PhantomData
+                    _marker: std::marker::PhantomData
                 }
             );
             COUNTER.inc();
@@ -382,7 +390,7 @@ mod tests {
                 Baz {
                     i: 5,
                     u: 0,
-                    _marker: core::marker::PhantomData
+                    _marker: std::marker::PhantomData
                 }
             );
         }
