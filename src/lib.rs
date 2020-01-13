@@ -2,7 +2,7 @@
 
 #[allow(unused_imports)] 
 #[macro_use(lazy_static)]
-extern crate lazy_static;
+pub extern crate lazy_static;
 
 extern crate parking_lot;
 
