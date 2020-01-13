@@ -1,7 +1,25 @@
 # global_counter
-Sometimes you just want to count something, and you really dont want to worry to much about data races, other race conditions, all the fun stuff.
+Sometimes you just want to count something globally, and you really dont want to worry to much about data races, other race conditions, all the fun stuff.
 
-TODO: Add examples of usage.
+## Usage
+
+Add the following dependency to your Cargo.toml file:
+
+```toml
+[dependencies]
+global_counter = "0.1.0"
+```
+
+And use the `#[macro_use]` annotation when importing:
+
+```rust
+#[macro_use]
+extern crate global_counter;
+```
+
+## Examples
+
+TODO: Add examples
 
 ## License
 
