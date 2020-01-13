@@ -1,8 +1,5 @@
 //! This is a minimal library implementing global, thread-safe counters.
 
-pub extern crate lazy_static;
-pub extern crate parking_lot;
-
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
     use std::sync::atomic::{
@@ -113,7 +110,6 @@ pub mod generic {
     ///
     /// # Example
     /// ```
-    /// # #[macro_use] extern crate lazy_static;
     /// # #[macro_use] use crate::global_counter::*;
     /// type CountedType = u32;
     /// fn main(){
@@ -127,8 +123,7 @@ pub mod generic {
     #[macro_export]
     macro_rules! global_counter {
         ($name:ident, $type:ident, $value:ident) => {
-            pub use lazy_static::lazy_static;
-            lazy_static! {
+            ::lazy_static::lazy_static! {
                 static ref $name: global_counter::generic::Counter<$type> =
                     global_counter::generic::Counter::new($value);
             }
@@ -143,7 +138,6 @@ pub mod generic {
     ///
     /// # Example
     /// ```
-    /// # #[macro_use] extern crate lazy_static;
     /// # #[macro_use] use crate::global_counter::*;
     /// type CountedType = u32;
     /// fn main(){
@@ -156,8 +150,7 @@ pub mod generic {
     #[macro_export]
     macro_rules! global_default_counter {
         ($name:ident, $type:ty) => {
-            pub use lazy_static::lazy_static;
-            lazy_static! {
+            ::lazy_static::lazy_static! {
                 static ref $name: generic::Counter<$type> = generic::Counter::default();
             }
         };
@@ -184,7 +177,6 @@ pub mod generic {
         ///
         /// # Good Example - Borrow goes out of scope
         /// ```
-        /// # #[macro_use] extern crate lazy_static;
         /// # #[macro_use] use crate::global_counter::*;
         /// fn main(){
         ///     global_default_counter!(COUNTER, u8);
@@ -198,7 +190,6 @@ pub mod generic {
         ///
         /// # Good Example - At most one concurrent access per thread
         /// ```
-        /// # #[macro_use] extern crate lazy_static;
         /// # #[macro_use] use crate::global_counter::*;
         /// fn main(){
         ///     global_default_counter!(COUNTER, u8);
@@ -232,7 +223,6 @@ pub mod generic {
         ///
         /// # Bad Example - Deadlock
         /// ```no_run
-        /// # #[macro_use] extern crate lazy_static;
         /// # #[macro_use] use crate::global_counter::*;
         /// // We spawn a new thread. This thread will try lockig the counter twice, causing a deadlock.
         /// std::thread::spawn(move || {
