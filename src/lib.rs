@@ -62,8 +62,31 @@ pub mod global_counter {
     }
 
     pub mod generic {
-        use crate::countable::Inc;
         use parking_lot::Mutex;
+
+        /// This trait abstracts over incrementing behaviour.
+        /// Implemented for standard integer types.
+        /// The current value is mutated, becoming the new, incremented value.
+        pub trait Inc {
+            fn inc(&mut self);
+        }
+
+        macro_rules! imp {
+        ($( $t:ty ) *) => {
+            $(
+                impl Inc for $t{
+                    #[inline]
+                    fn inc(&mut self){
+                        *self += 1;
+                    }
+                }
+            )*
+        };
+    }
+
+        imp![u8 u16 u32 u64 u128 i8 i16 i32 i64 i128];
+
+        // TODO: Update doc.
 
         /// A generic Counter, counting over `Countables`.
         ///
@@ -77,7 +100,7 @@ pub mod global_counter {
         pub struct Counter<T: Inc>(Mutex<T>);
 
         /// Creates a new generic, global counter, starting from the given value.
-        /// 
+        ///
         /// This macro is exported at the crates top-level.
         #[macro_export]
         macro_rules! global_counter {
@@ -89,9 +112,9 @@ pub mod global_counter {
         }
 
         /// Creates a new generic, global counter, starting from its (inherited) default value.
-        /// 
+        ///
         /// This macro will fail compilation if the given type is not `Default`.
-        /// 
+        ///
         /// This macro is exported at the crates top-level.
         #[macro_export]
         macro_rules! global_default_counter {
@@ -105,10 +128,11 @@ pub mod global_counter {
         // TODO: Add method documentation.
 
         impl<T: Inc> Counter<T> {
+            // TODO: Fix this broken link.
 
             /// Creates a new generic Counter
-            /// 
-            /// This function is not const yet. As soon as `const fn` [parking_lot::Mutex](https://docs.rs/parking_lot/0.10.0/parking_lot/type.Mutex.html)`::new()` is stable, this will be as well.
+            ///
+            /// This function is not const yet. As soon as [Mutex::new()](/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well.
             #[allow(dead_code)]
             #[inline]
             pub fn new(val: T) -> Counter<T> {
@@ -117,30 +141,30 @@ pub mod global_counter {
 
             /// Returns (basically) an immutable borrow of the underlying value.
             /// Best make sure this borrow goes dead before any other accesses to the counter are made.
-            /// 
+            ///
             /// If `T` is not [Clone](std::Clone), this is the only way to access the current value of the counter.
-            /// 
+            ///
             /// **Warning**: Attempting to access the counter from the thread holding this borrow **will** result in a deadlock.
             /// As long as this borrow is alive, no accesses to the counter from any thread are possible.
-            /// 
-            /// # Good Example - 
+            ///
+            /// # Good Example -
             /// ```
             /// // TODO: Introduce good example.
             /// ```
-            /// 
+            ///
             /// # Bad Example - Deadlock
             /// ```no_run
             /// # #[macro_use] use crate::global_counter::*;
             /// // We spawn a new thread. This thread will try lockig the counter twice, causing a deadlock.
             /// std::thread::spawn(move || {
-            /// 
+            ///
             ///     // u32 is actually Copy, therefore also Clone, this is just for illustration purposes.
             ///     global_default_counter!(COUNTER, u32);
             ///     
             ///     // The borrow is now alive, and this thread now holds a lock onto the Counter.
             ///     let counter_value_borrowed = COUNTER.get_borrowed();
             ///     assert_eq!(0, *counter_value_borrowed);
-            /// 
+            ///
             ///     // Now we try to lock the counter again, but we already hold a lock in the current thread! Deadlock!
             ///     COUNTER.inc();
             ///     
@@ -167,12 +191,13 @@ pub mod global_counter {
             }
         }
 
-        impl<T : Inc + Clone> Counter<T>{
+        impl<T: Inc + Clone> Counter<T> {
+            // TODO: Improve documentation.
 
             /// Implemented for `Counter` only when T is `Clone`.
-            /// 
-            /// This avoid the troubles of `get_borrowed` by cloning the current value. 
-            /// 
+            ///
+            /// This avoid the troubles of `get_borrowed` by cloning the current value.
+            ///
             /// Creating a deadlock using this API should, contrasting to `get_borrowed`, be impossible.
             /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordable.
             #[allow(dead_code)]
@@ -181,8 +206,8 @@ pub mod global_counter {
                 (*self.0.lock()).clone()
             }
 
-            /// Implemented for `Counter` only when T is `Clone`.
-            /// 
+            /// Implemented for `Counter` only when `T` is also `Clone`.
+            ///
             /// Increments the Counter, returning the previous value.
             #[allow(dead_code)]
             #[inline]
@@ -193,9 +218,10 @@ pub mod global_counter {
             }
         }
 
-        impl<T: Inc + Default> Counter<T>{
-
-            /// Implemented for `Counter` only when T is `Default`.
+        impl<T: Inc + Default> Counter<T> {
+            /// Implemented for `Counter` only when `T` is also `Default`.
+            /// 
+            /// Resets the Counter to its default value.
             #[allow(dead_code)]
             #[inline]
             pub fn reset(&self) {
@@ -203,35 +229,6 @@ pub mod global_counter {
             }
         }
     }
-}
-
-/// This module contains the `Countable` trait,
-/// as well as its supertrait `Inc`.
-/// Implementations for integer primitives are supplied,
-/// however primitive Counters from `global_counter::primitive` should be preferred for performance.
-pub mod countable {
-
-    /// This trait abstracts over incrementing behaviour.
-    /// Implemented for standard integer types.
-    /// The current value is mutated, becoming the new, incremented value.
-    pub trait Inc {
-        fn inc(&mut self);
-    }
-
-    macro_rules! imp {
-        ($( $t:ty ) *) => {
-            $(
-                impl Inc for $t{
-                    #[inline]
-                    fn inc(&mut self){
-                        *self += 1;
-                    }
-                }
-            )*
-        };
-    }
-
-    imp![u8 u16 u32 u64 u128 i8 i16 i32 i64 i128];
 }
 
 #[cfg(test)]
@@ -243,6 +240,8 @@ mod tests {
         #![allow(unused_attributes)]
         #[macro_use]
         use crate::*;
+
+        // TODO: Add tests for get_borrowed.
 
         #[test]
         fn count_to_five_single_threaded() {
@@ -260,6 +259,8 @@ mod tests {
             assert_eq!(COUNTER.get_cloned(), 5);
         }
 
+        // TODO: Clean up this mess
+
         #[derive(Clone, Default, PartialEq, Eq, Debug)]
         struct Baz<T> {
             i: i32,
@@ -267,7 +268,7 @@ mod tests {
             _marker: std::marker::PhantomData<T>,
         }
 
-        impl<T> crate::countable::Inc for Baz<T> {
+        impl<T> crate::global_counter::generic::Inc for Baz<T> {
             fn inc(&mut self) {
                 self.i += 1;
             }
