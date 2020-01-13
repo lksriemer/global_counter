@@ -7,7 +7,7 @@ pub mod primitive {
     macro_rules! primitive_counter {
             ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
                 $(
-                    /// This is a primitive Counter, implemented using atomics from `std::sync::atomic`.
+                    /// A primitive counter, implemented using atomics from `std::sync::atomic`.
                     ///
                     /// Regarding atomic ordering, `Ordering::SeqCst` is currently used whenever possible.
                     /// This unstable detail should never be relied on for soundness.
@@ -22,6 +22,7 @@ pub mod primitive {
 
                         // TODO: Add method documentation.
 
+                        /// 
                         #[allow(dead_code)]
                         #[inline]
                         pub const fn new(val : $primitive) -> $counter{
@@ -84,22 +85,32 @@ pub mod generic {
 
     imp![u8 u16 u32 u64 u128 i8 i16 i32 i64 i128];
 
-    // TODO: Update doc.
-
-    /// A generic counter, counting over `Countables`.
+    /// A generic counter.
     ///
     /// This counter is `Send + Sync` regardless of its contents, meaning it is always globally available from all threads, concurrently.
     ///
-    /// Implement `Countable` for your own types, by implementing `Default + Clone + Inc`.
-    /// Implementing `Inc` requires you to supply an impl for incrementing an element of your type.
+    /// Implement `Inc` by supplying an impl for incrementing your type. This implementation does not need to be thread-safe.
     ///
-    /// Implementation-wise, this is basically a [Mutex](/lock_api/struct.Mutex.html).
+    /// Implementation-wise, this is basically a [Mutex from parking_lot](/lock_api/struct.Mutex.html).
     #[derive(Debug, Default)]
     pub struct Counter<T: Inc>(Mutex<T>);
 
     /// Creates a new generic, global counter, starting from the given value.
     ///
     /// This macro is exported at the crates top-level.
+    ///
+    /// Example
+    /// ```
+    /// # #[macro_use] use crate::global_counter::*;
+    /// type CountedType = u32;
+    /// fn main(){
+    ///     const start_value : u32 = 0;
+    ///     global_counter!(COUNTER_NAME, CountedType, start_value);
+    ///     assert_eq!(COUNTER_NAME.get_cloned(), 0);
+    ///     COUNTER_NAME.inc();
+    ///     assert_eq!(COUNTER_NAME.get_cloned(), 1);
+    /// }
+    /// ```
     #[macro_export]
     macro_rules! global_counter {
             ($name:ident, $type:ident, $value:ident) => {
@@ -114,6 +125,18 @@ pub mod generic {
     /// This macro will fail compilation if the given type is not `Default`.
     ///
     /// This macro is exported at the crates top-level.
+    /// 
+    /// /// Example
+    /// ```
+    /// # #[macro_use] use crate::global_counter::*;
+    /// type CountedType = u32;
+    /// fn main(){
+    ///     global_default_counter!(COUNTER_NAME, CountedType);
+    ///     assert_eq!(COUNTER_NAME.get_cloned(), 0);
+    ///     COUNTER_NAME.inc();
+    ///     assert_eq!(COUNTER_NAME.get_cloned(), 1);
+    /// }
+    /// ```
     #[macro_export]
     macro_rules! global_default_counter {
         ($name:ident, $type:ty) => {
@@ -124,8 +147,6 @@ pub mod generic {
     }
 
     impl<T: Inc> Counter<T> {
-        // TODO: Fix this broken link.
-
         /// Creates a new generic counter
         ///
         /// This function is not const yet. As soon as [Mutex::new()](../../lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well.
