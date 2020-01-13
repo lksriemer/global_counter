@@ -576,8 +576,6 @@ mod tests {
             COUNTER.inc();
             assert_eq!(COUNTER.get_cloned(), 1);
         }
-
-        // FIXME: Add tests concerning get_cloned and set.
     }
 
     #[cfg(test)]
