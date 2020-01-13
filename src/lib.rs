@@ -1,12 +1,10 @@
-pub mod global_counter {
+pub mod primitive {
+    use core::sync::atomic::{
+        AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
+        Ordering,
+    };
 
-    pub mod primitive {
-        use core::sync::atomic::{
-            AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
-            Ordering,
-        };
-
-        macro_rules! primitive_counter {
+    macro_rules! primitive_counter {
             ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
                 $(
                     /// This is a primitive Counter, implemented using atomics from `std::sync::atomic`.
@@ -58,20 +56,20 @@ pub mod global_counter {
             };
         }
 
-        primitive_counter![u8 AtomicU8 CounterU8, u16 AtomicU16 CounterU16, u32 AtomicU32 CounterU32, u64 AtomicU64 CounterU64, i8 AtomicI8 CounterI8, i16 AtomicI16 CounterI16, i32 AtomicI32 CounterI32, i64 AtomicI64 CounterI64];
+    primitive_counter![u8 AtomicU8 CounterU8, u16 AtomicU16 CounterU16, u32 AtomicU32 CounterU32, u64 AtomicU64 CounterU64, i8 AtomicI8 CounterI8, i16 AtomicI16 CounterI16, i32 AtomicI32 CounterI32, i64 AtomicI64 CounterI64];
+}
+
+pub mod generic {
+    use parking_lot::Mutex;
+
+    /// This trait abstracts over incrementing behaviour.
+    /// Implemented for standard integer types.
+    /// The current value is mutated, becoming the new, incremented value.
+    pub trait Inc {
+        fn inc(&mut self);
     }
 
-    pub mod generic {
-        use parking_lot::Mutex;
-
-        /// This trait abstracts over incrementing behaviour.
-        /// Implemented for standard integer types.
-        /// The current value is mutated, becoming the new, incremented value.
-        pub trait Inc {
-            fn inc(&mut self);
-        }
-
-        macro_rules! imp {
+    macro_rules! imp {
         ($( $t:ty ) *) => {
             $(
                 impl Inc for $t{
@@ -84,26 +82,26 @@ pub mod global_counter {
         };
     }
 
-        imp![u8 u16 u32 u64 u128 i8 i16 i32 i64 i128];
+    imp![u8 u16 u32 u64 u128 i8 i16 i32 i64 i128];
 
-        // TODO: Update doc.
+    // TODO: Update doc.
 
-        /// A generic Counter, counting over `Countables`.
-        ///
-        /// This counter is `Send + Sync` regardless of its contents, meaning it is always globally available from all threads, concurrently.
-        ///
-        /// Implement `Countable` for your own types, by implementing `Default + Clone + Inc`.
-        /// Implementing `Inc` requires you to supply an impl for incrementing an element of your type.
-        ///
-        /// Implementation-wise, this is basically a Mutex wrapped in an Arc.
-        #[derive(Debug, Default)]
-        pub struct Counter<T: Inc>(Mutex<T>);
+    /// A generic counter, counting over `Countables`.
+    ///
+    /// This counter is `Send + Sync` regardless of its contents, meaning it is always globally available from all threads, concurrently.
+    ///
+    /// Implement `Countable` for your own types, by implementing `Default + Clone + Inc`.
+    /// Implementing `Inc` requires you to supply an impl for incrementing an element of your type.
+    ///
+    /// Implementation-wise, this is basically a [Mutex](/lock_api/struct.Mutex.html).
+    #[derive(Debug, Default)]
+    pub struct Counter<T: Inc>(Mutex<T>);
 
-        /// Creates a new generic, global counter, starting from the given value.
-        ///
-        /// This macro is exported at the crates top-level.
-        #[macro_export]
-        macro_rules! global_counter {
+    /// Creates a new generic, global counter, starting from the given value.
+    ///
+    /// This macro is exported at the crates top-level.
+    #[macro_export]
+    macro_rules! global_counter {
             ($name:ident, $type:ident, $value:ident) => {
                 lazy_static::lazy_static! {
                     static ref $name : global_counter::generic::Counter<$type> = global_counter::generic::Counter::new($value);
@@ -111,122 +109,156 @@ pub mod global_counter {
             };
         }
 
-        /// Creates a new generic, global counter, starting from its (inherited) default value.
+    /// Creates a new generic, global counter, starting from its (inherited) default value.
+    ///
+    /// This macro will fail compilation if the given type is not `Default`.
+    ///
+    /// This macro is exported at the crates top-level.
+    #[macro_export]
+    macro_rules! global_default_counter {
+        ($name:ident, $type:ty) => {
+            lazy_static::lazy_static! {
+                static ref $name : generic::Counter<$type> = generic::Counter::default();
+            }
+        };
+    }
+
+    impl<T: Inc> Counter<T> {
+        // TODO: Fix this broken link.
+
+        /// Creates a new generic counter
         ///
-        /// This macro will fail compilation if the given type is not `Default`.
+        /// This function is not const yet. As soon as [Mutex::new()](../../lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well.
+        /// Then, the exported macros will no longer be needed.
+        #[allow(dead_code)]
+        #[inline]
+        pub fn new(val: T) -> Counter<T> {
+            Counter(Mutex::new(val))
+        }
+
+        /// Returns (basically) an immutable borrow of the underlying value.
+        /// Best make sure this borrow goes dead before any other accesses to the counter are made.
         ///
-        /// This macro is exported at the crates top-level.
-        #[macro_export]
-        macro_rules! global_default_counter {
-            ($name:ident, $type:ty) => {
-                lazy_static::lazy_static! {
-                    static ref $name : global_counter::generic::Counter<$type> = global_counter::generic::Counter::default();
-                }
-            };
+        /// If `T` is not [Clone](std::Clone), this is the only way to access the current value of the counter.
+        ///
+        /// **Warning**: Attempting to access the counter from the thread holding this borrow **will** result in a deadlock.
+        /// As long as this borrow is alive, no accesses to the counter from any thread are possible.
+        ///
+        /// # Good Example - Borrow goes out of scope
+        /// ```
+        /// # #[macro_use] use crate::global_counter::*;
+        /// fn main(){
+        ///     global_default_counter!(COUNTER, u8);
+        ///     assert_eq!(0, *COUNTER.get_borrowed());
+        ///
+        ///     // The borrow is already out of scope, we can call inc safely.
+        ///     COUNTER.inc();
+        ///
+        ///     assert_eq!(1, *COUNTER.get_borrowed());}
+        /// ```
+        ///
+        /// # Good Example - At most one concurrent access per thread
+        /// ```
+        /// # #[macro_use] use crate::global_counter::*;
+        /// fn main(){
+        ///     global_default_counter!(COUNTER, u8);
+        ///     assert_eq!(0, *COUNTER.get_borrowed());
+        ///     
+        ///     // Using this code, there is no danger of data races, race coditions whatsoever.
+        ///     // Beacuse at each point in time, each thread either has a borrow of the Counters value alive,
+        ///     // or is accessing the Counter using its api, never both at the same time.
+        ///     let t1 = std::thread::spawn(move || {
+        ///         COUNTER.inc();
+        ///         let value_borrowed = COUNTER.get_borrowed();
+        ///         assert!(1 <= *value_borrowed, *value_borrowed <= 3);
+        ///     });
+        ///     let t2 = std::thread::spawn(move || {
+        ///         COUNTER.inc();
+        ///         let value_borrowed = COUNTER.get_borrowed();
+        ///         assert!(1 <= *value_borrowed, *value_borrowed <= 3);
+        ///     });
+        ///     let t3 = std::thread::spawn(move || {
+        ///         COUNTER.inc();
+        ///         let value_borrowed = COUNTER.get_borrowed();
+        ///         assert!(1 <= *value_borrowed, *value_borrowed <= 3);
+        ///     });
+        ///
+        ///     t1.join().unwrap();
+        ///     t2.join().unwrap();
+        ///     t3.join().unwrap();
+        ///     
+        ///     assert_eq!(3, *COUNTER.get_borrowed());}
+        /// ```
+        ///
+        /// # Bad Example - Deadlock
+        /// ```no_run
+        /// # #[macro_use] use crate::global_counter::*;
+        /// // We spawn a new thread. This thread will try lockig the counter twice, causing a deadlock.
+        /// std::thread::spawn(move || {
+        ///
+        ///     // We could also use get_cloned with this counter, circumventing all these troubles.
+        ///     global_default_counter!(COUNTER, u32);
+        ///     
+        ///     // The borrow is now alive, and this thread now holds a lock onto the Counter.
+        ///     let counter_value_borrowed = COUNTER.get_borrowed();
+        ///     assert_eq!(0, *counter_value_borrowed);
+        ///
+        ///     // Now we try to lock the counter again, but we already hold a lock in the current thread! Deadlock!
+        ///     COUNTER.inc();
+        ///     
+        ///     // Here we use `counter_value_borrowed` again, ensuring it can't be dropped "fortunately".
+        ///     // This line will never actually be reached.
+        ///     assert_eq!(0, *counter_value_borrowed);
+        /// });
+        /// ```
+        #[allow(dead_code)]
+        #[inline]
+        pub fn get_borrowed(&self) -> impl std::ops::Deref<Target = T> + '_ {
+            self.0.lock()
         }
 
-        // TODO: Add method documentation.
-
-        impl<T: Inc> Counter<T> {
-            // TODO: Fix this broken link.
-
-            /// Creates a new generic Counter
-            ///
-            /// This function is not const yet. As soon as [Mutex::new()](/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well.
-            #[allow(dead_code)]
-            #[inline]
-            pub fn new(val: T) -> Counter<T> {
-                Counter(Mutex::new(val))
-            }
-
-            /// Returns (basically) an immutable borrow of the underlying value.
-            /// Best make sure this borrow goes dead before any other accesses to the counter are made.
-            ///
-            /// If `T` is not [Clone](std::Clone), this is the only way to access the current value of the counter.
-            ///
-            /// **Warning**: Attempting to access the counter from the thread holding this borrow **will** result in a deadlock.
-            /// As long as this borrow is alive, no accesses to the counter from any thread are possible.
-            ///
-            /// # Good Example -
-            /// ```
-            /// // TODO: Introduce good example.
-            /// ```
-            ///
-            /// # Bad Example - Deadlock
-            /// ```no_run
-            /// # #[macro_use] use crate::global_counter::*;
-            /// // We spawn a new thread. This thread will try lockig the counter twice, causing a deadlock.
-            /// std::thread::spawn(move || {
-            ///
-            ///     // u32 is actually Copy, therefore also Clone, this is just for illustration purposes.
-            ///     global_default_counter!(COUNTER, u32);
-            ///     
-            ///     // The borrow is now alive, and this thread now holds a lock onto the Counter.
-            ///     let counter_value_borrowed = COUNTER.get_borrowed();
-            ///     assert_eq!(0, *counter_value_borrowed);
-            ///
-            ///     // Now we try to lock the counter again, but we already hold a lock in the current thread! Deadlock!
-            ///     COUNTER.inc();
-            ///     
-            ///     // Here we use `counter_value_borrowed` again, ensuring it can't be dropped "fortunately".
-            ///     assert_eq!(0, *counter_value_borrowed);
-            /// });
-            /// ```
-            #[allow(dead_code)]
-            #[inline]
-            pub fn get_borrowed(&self) -> impl std::ops::Deref<Target = T> + '_ {
-                self.0.lock()
-            }
-
-            #[allow(dead_code)]
-            #[inline]
-            pub fn set(&self, val: T) {
-                *self.0.lock() = val;
-            }
-
-            #[allow(dead_code)]
-            #[inline]
-            pub fn inc(&self) {
-                (*self.0.lock()).inc();
-            }
+        /// Sets the Counter to the given value.
+        #[allow(dead_code)]
+        #[inline]
+        pub fn set(&self, val: T) {
+            *self.0.lock() = val;
         }
 
-        impl<T: Inc + Clone> Counter<T> {
-            // TODO: Improve documentation.
+        /// Increments the Counter, delegating the specific implementation to the [Inc](trait.Inc.html) trait.
+        #[allow(dead_code)]
+        #[inline]
+        pub fn inc(&self) {
+            (*self.0.lock()).inc();
+        }
+    }
 
-            /// Implemented for `Counter` only when T is `Clone`.
-            ///
-            /// This avoid the troubles of `get_borrowed` by cloning the current value.
-            ///
-            /// Creating a deadlock using this API should, contrasting to `get_borrowed`, be impossible.
-            /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordable.
-            #[allow(dead_code)]
-            #[inline]
-            pub fn get_cloned(&self) -> T {
-                (*self.0.lock()).clone()
-            }
-
-            /// Implemented for `Counter` only when `T` is also `Clone`.
-            ///
-            /// Increments the Counter, returning the previous value.
-            #[allow(dead_code)]
-            #[inline]
-            pub fn inc_cloning(&self) -> T {
-                let prev = self.get_cloned();
-                self.inc();
-                prev
-            }
+    impl<T: Inc + Clone> Counter<T> {
+        /// This avoid the troubles of [get_borrowed](struct.Counter.html#method.get_borrowed) by cloning the current value.
+        ///
+        /// Creating a deadlock using this API should be impossible.
+        /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordable.
+        #[allow(dead_code)]
+        #[inline]
+        pub fn get_cloned(&self) -> T {
+            (*self.0.lock()).clone()
         }
 
-        impl<T: Inc + Default> Counter<T> {
-            /// Implemented for `Counter` only when `T` is also `Default`.
-            /// 
-            /// Resets the Counter to its default value.
-            #[allow(dead_code)]
-            #[inline]
-            pub fn reset(&self) {
-                self.set(T::default());
-            }
+        /// Increments the Counter, returning the previous value, cloned.
+        #[allow(dead_code)]
+        #[inline]
+        pub fn inc_cloning(&self) -> T {
+            let prev = self.get_cloned();
+            self.inc();
+            prev
+        }
+    }
+
+    impl<T: Inc + Default> Counter<T> {
+        /// Resets the Counter to its default value.
+        #[allow(dead_code)]
+        #[inline]
+        pub fn reset(&self) {
+            self.set(T::default());
         }
     }
 }
@@ -268,7 +300,7 @@ mod tests {
             _marker: std::marker::PhantomData<T>,
         }
 
-        impl<T> crate::global_counter::generic::Inc for Baz<T> {
+        impl<T> crate::generic::Inc for Baz<T> {
             fn inc(&mut self) {
                 self.i += 1;
             }
@@ -521,7 +553,7 @@ mod tests {
     #[cfg(test)]
     mod primitive {
 
-        use crate::global_counter::primitive::*;
+        use crate::primitive::*;
 
         #[test]
         fn primitive_new_const() {
