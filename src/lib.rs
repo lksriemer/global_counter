@@ -111,7 +111,7 @@ pub mod generic {
     ///
     /// Implement `Inc` by supplying an impl for incrementing your type. This implementation does not need to be thread-safe.
     ///
-    /// Implementation-wise, this is basically a [Mutex from parking_lot](../../lock_api/struct.Mutex.html).
+    /// Implementation-wise, this is basically a [Mutex from parking_lot](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html).
     #[derive(Debug, Default)]
     pub struct Counter<T: Inc>(Mutex<T>);
 
@@ -170,7 +170,7 @@ pub mod generic {
     impl<T: Inc> Counter<T> {
         /// Creates a new generic counter
         ///
-        /// This function is not const yet. As soon as [Mutex::new()](../../lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well.
+        /// This function is not const yet. As soon as [Mutex::new()](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well.
         /// Then, the exported macros will no longer be needed.
         #[allow(dead_code)]
         #[inline]
@@ -181,7 +181,7 @@ pub mod generic {
         /// Returns (basically) an immutable borrow of the underlying value.
         /// Best make sure this borrow goes dead before any other accesses to the counter are made.
         ///
-        /// If `T` is not [Clone](std::Clone), this is the only way to access the current value of the counter.
+        /// If `T` is not `Clone`, this is the only way to access the current value of the counter.
         ///
         /// **Warning**: Attempting to access the counter from the thread holding this borrow **will** result in a deadlock.
         /// As long as this borrow is alive, no accesses to the counter from any thread are possible.
