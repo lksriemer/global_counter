@@ -58,7 +58,7 @@ global_counter!(
 );
 
 fn main() {
-    // Note how we use a borrow, but never clone this HashSet.
+    // Note how we use a borrow, but never clone this LinkedList.
     // Of course, a cloning, convenient API is also available.
     assert_eq!((*COUNTER.get_borrowed()).card(), 0);
 
