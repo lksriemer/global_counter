@@ -133,7 +133,7 @@ pub mod generic {
     /// ```
     #[macro_export]
     macro_rules! global_counter {
-        ($name:ident, $type:ident, $value:ident) => {
+        ($name:ident, $type:ident, $value:expr) => {
             lazy_static! {
                 static ref $name: global_counter::generic::Counter<$type> =
                     global_counter::generic::Counter::new($value);
