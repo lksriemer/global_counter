@@ -4,7 +4,7 @@
 #[macro_use(lazy_static)]
 pub extern crate lazy_static;
 
-extern crate parking_lot;
+pub extern crate parking_lot;
 
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
