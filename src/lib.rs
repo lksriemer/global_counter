@@ -100,7 +100,7 @@ pub mod generic {
     ///
     /// Implement `Inc` by supplying an impl for incrementing your type. This implementation does not need to be thread-safe.
     ///
-    /// Implementation-wise, this is basically a [Mutex from parking_lot](/lock_api/struct.Mutex.html).
+    /// Implementation-wise, this is basically a [Mutex from parking_lot](../../lock_api/struct.Mutex.html).
     #[derive(Debug, Default)]
     pub struct Counter<T: Inc>(Mutex<T>);
 
@@ -195,8 +195,8 @@ pub mod generic {
         ///     assert_eq!(0, *COUNTER.get_borrowed());
         ///     
         ///     // Using this code, there is no danger of data races, race coditions whatsoever.
-        ///     // Beacuse at each point in time, each thread either has a borrow of the Counters value alive,
-        ///     // or is accessing the Counter using its api, never both at the same time.
+        ///     // Beacuse at each point in time, each thread either has a borrow of the counters value alive,
+        ///     // or is accessing the counter using its api, never both at the same time.
         ///     let t1 = std::thread::spawn(move || {
         ///         COUNTER.inc();
         ///         let value_borrowed = COUNTER.get_borrowed();
@@ -229,7 +229,7 @@ pub mod generic {
         ///     // We could also use get_cloned with this counter, circumventing all these troubles.
         ///     global_default_counter!(COUNTER, u32);
         ///     
-        ///     // The borrow is now alive, and this thread now holds a lock onto the Counter.
+        ///     // The borrow is now alive, and this thread now holds a lock onto the counter.
         ///     let counter_value_borrowed = COUNTER.get_borrowed();
         ///     assert_eq!(0, *counter_value_borrowed);
         ///
@@ -247,14 +247,14 @@ pub mod generic {
             self.0.lock()
         }
 
-        /// Sets the Counter to the given value.
+        /// Sets the counter to be the given value.
         #[allow(dead_code)]
         #[inline]
         pub fn set(&self, val: T) {
             *self.0.lock() = val;
         }
 
-        /// Increments the Counter, delegating the specific implementation to the [Inc](trait.Inc.html) trait.
+        /// Increments the counter, delegating the specific implementation to the [Inc](trait.Inc.html) trait.
         #[allow(dead_code)]
         #[inline]
         pub fn inc(&self) {
@@ -273,7 +273,7 @@ pub mod generic {
             (*self.0.lock()).clone()
         }
 
-        /// Increments the Counter, returning the previous value, cloned.
+        /// Increments the counter, returning the previous value, cloned.
         #[allow(dead_code)]
         #[inline]
         pub fn inc_cloning(&self) -> T {
@@ -284,7 +284,7 @@ pub mod generic {
     }
 
     impl<T: Inc + Default> Counter<T> {
-        /// Resets the Counter to its default value.
+        /// Resets the counter to its default value.
         #[allow(dead_code)]
         #[inline]
         pub fn reset(&self) {
