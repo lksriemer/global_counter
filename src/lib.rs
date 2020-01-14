@@ -1,21 +1,21 @@
 //! This is a minimal library implementing global, thread-safe counters.
-//! 
+//!
 //! This library re-exports lazy_static::*, technicalities require this.
 
 extern crate lazy_static;
 
-// We need to pub use lazy_static, as global_(default_)counter! is expanded to a lazy_static! call. 
+// We need to pub use lazy_static, as global_(default_)counter! is expanded to a lazy_static! call.
 // Absolute paths wont help here.
 // TODO: Think of a way to only pub reexport the lazy_static! macro.
 pub use lazy_static::*;
 
 // Hack for macro export.
-// In foreign crates, `global_counter::generic::Counter` will be the name of our counter, 
+// In foreign crates, `global_counter::generic::Counter` will be the name of our counter,
 // but in this crate (for testing), we need to artificially introduce this path.
 // TODO: Think of a better way to do this.
 #[doc(hidden)]
-pub mod global_counter{
-    pub mod generic{
+pub mod global_counter {
+    pub mod generic {
         pub type Counter<T> = crate::generic::Counter<T>;
     }
 }
@@ -23,8 +23,8 @@ pub mod global_counter{
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
     use std::sync::atomic::{
-        AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
-        Ordering,
+        AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU64,
+        AtomicU8, AtomicUsize, Ordering,
     };
 
     macro_rules! primitive_counter {
@@ -85,7 +85,7 @@ pub mod primitive {
             };
         }
 
-    primitive_counter![u8 AtomicU8 CounterU8, u16 AtomicU16 CounterU16, u32 AtomicU32 CounterU32, u64 AtomicU64 CounterU64, i8 AtomicI8 CounterI8, i16 AtomicI16 CounterI16, i32 AtomicI32 CounterI32, i64 AtomicI64 CounterI64];
+    primitive_counter![u8 AtomicU8 CounterU8, u16 AtomicU16 CounterU16, u32 AtomicU32 CounterU32, u64 AtomicU64 CounterU64, usize AtomicUsize CounterUsize, i8 AtomicI8 CounterI8, i16 AtomicI16 CounterI16, i32 AtomicI32 CounterI32, i64 AtomicI64 CounterI64, isize AtomicIsize CounterIsize];
 }
 
 /// This module contains a generic, thread-safe counter and the accompanying `Inc` trait.
@@ -171,7 +171,8 @@ pub mod generic {
     macro_rules! global_default_counter {
         ($name:ident, $type:ty) => {
             lazy_static! {
-                static ref $name: global_counter::generic::Counter<$type> = global_counter::generic::Counter::default();
+                static ref $name: global_counter::generic::Counter<$type> =
+                    global_counter::generic::Counter::default();
             }
         };
     }
