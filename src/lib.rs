@@ -627,6 +627,11 @@ mod tests {
             COUNTERU64.inc();
             assert_eq!(COUNTERU64.get(), 1);
 
+            static COUNTERUSIZE: CounterUsize = CounterUsize::new(0);
+            assert_eq!(COUNTERUSIZE.get(), 0);
+            COUNTERUSIZE.inc();
+            assert_eq!(COUNTERUSIZE.get(), 1);
+
             static COUNTERI8: CounterI8 = CounterI8::new(0);
             assert_eq!(COUNTERI8.get(), 0);
             COUNTERI8.inc();
@@ -646,6 +651,11 @@ mod tests {
             assert_eq!(COUNTERI64.get(), 0);
             COUNTERI64.inc();
             assert_eq!(COUNTERI64.get(), 1);
+
+            static COUNTERISIZE: CounterIsize = CounterIsize::new(0);
+            assert_eq!(COUNTERISIZE.get(), 0);
+            COUNTERISIZE.inc();
+            assert_eq!(COUNTERISIZE.get(), 1);
         }
 
         #[test]
