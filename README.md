@@ -82,7 +82,7 @@ fn main() {
 
     t2.join().unwrap();
 
-    // Both threads finished, the counter guarantees `Inc` was executed 1 << 20 times.
+    // Both threads finished, the counter guarantees `Inc` was executed 2 << 20 times.
     assert_eq!((*COUNTER.get_borrowed()).card(), 2 << 20);
 }
 ```
