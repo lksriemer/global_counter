@@ -1,6 +1,6 @@
 //! This is a minimal library implementing global, thread-safe counters.
 //! 
-//! This library re-exports lazy_static::*, the technicalities require this.
+//! This library re-exports lazy_static::*, technicalities require this.
 
 extern crate lazy_static;
 
