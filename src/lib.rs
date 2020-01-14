@@ -188,7 +188,7 @@ pub mod generic {
         }
 
         /// Returns (basically) an immutable borrow of the underlying value.
-        /// Best make sure this borrow goes dead before any other accesses to the counter are made.
+        /// Best make sure this borrow goes out of scope before any other methods of the counter are being called.
         ///
         /// If `T` is not `Clone`, this is the only way to access the current value of the counter.
         ///
@@ -216,7 +216,7 @@ pub mod generic {
         ///     assert_eq!(0, *COUNTER.get_borrowed());
         ///     
         ///     // Using this code, there is no danger of data races, race coditions whatsoever.
-        ///     // Beacuse at each point in time, each thread either has a borrow of the counters value alive,
+        ///     // As at each point in time, each thread either has a borrow of the counters value alive,
         ///     // or is accessing the counter using its api, never both at the same time.
         ///     let t1 = std::thread::spawn(move || {
         ///         COUNTER.inc();
