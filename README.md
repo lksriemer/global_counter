@@ -1,5 +1,8 @@
 # global_counter
+
 Sometimes you just want to count something globally, and you really dont want to worry to much about data races, other race conditions, all the fun stuff.
+
+That's what this crate is for. It supplies global counters, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex  for the generic counter and the stdlibs atomic types for the primitive counters.
 
 ## Usage
 
@@ -10,7 +13,7 @@ Add the following dependency to your Cargo.toml file:
 global_counter = "0.1.2"
 ```
 
-And use the `#[macro_use]` annotation when importing:
+And use the `#[macro_use]` annotation when importing, like this:
 
 ```rust
 #[macro_use]
@@ -27,7 +30,7 @@ use global_counter::generic::Inc;
 use std::collections::LinkedList;
 use std::iter::FromIterator;
 
-// Note how this doesnt implement `Clone`.
+// Note how this (supposedly) doesnt implement `Clone`.
 #[derive(Debug, PartialEq, Eq)]
 struct CardinalityCountedList(LinkedList<()>);
 
@@ -82,7 +85,7 @@ fn main() {
 
     t2.join().unwrap();
 
-    // Both threads finished, the counter guarantees `Inc` was executed 1 << 20 times.
+    // Both threads finished, the counter guarantees `Inc` was executed 2 << 20 times.
     assert_eq!((*COUNTER.get_borrowed()).card(), 2 << 20);
 }
 ```
