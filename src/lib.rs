@@ -92,7 +92,7 @@ pub mod primitive {
 pub mod generic {
     use parking_lot::Mutex;
 
-    /// This trait abstracts over incrementing behaviour.
+    /// This trait promises incrementing behaviour.
     /// Implemented for standard integer types.
     /// The current value is mutated, becoming the new, incremented value.
     pub trait Inc {
