@@ -1,6 +1,11 @@
 //! This is a minimal library implementing global, thread-safe counters.
+//! 
+//! This library re-exports lazy_static::*, the technicalities require this.
 
 extern crate lazy_static;
+
+// We need to pub use lazy_static, as global_(default_)counter! is expanded to a lazy_static! call. Absolute paths wont help here.
+// TODO: Think of a way to only pub reexport the lazy_static! macro.
 pub use lazy_static::*;
 
 // Hack for macro export.
