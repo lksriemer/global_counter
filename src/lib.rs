@@ -1,6 +1,6 @@
 //! This is a minimal library implementing global, thread-safe counters.
 //!
-//! This library re-exports lazy_static::*, technicalities require this.
+//! This library re-exports lazy_static::*, required by technicalities.
 
 extern crate lazy_static;
 
@@ -67,7 +67,7 @@ pub mod primitive {
                             self.0.store(val, Ordering::SeqCst);
                         }
 
-                        /// Increments the counter by one.
+                        /// Increments the counter by one, returning the previous value.
                         #[allow(dead_code)]
                         #[inline]
                         pub fn inc(&self) -> $primitive{
@@ -112,7 +112,7 @@ pub mod generic {
         };
     }
 
-    imp![u8 u16 u32 u64 u128 i8 i16 i32 i64 i128];
+    imp![u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize];
 
     /// A generic counter.
     ///
