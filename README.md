@@ -1,5 +1,7 @@
 # global_counter
 
+[Documentation](https://docs.rs/global_counter/*/global_counter/)
+
 Sometimes you just want to count something globally, and you really dont want to worry to much about data races, other race conditions, all the fun stuff.
 
 That's what this crate is for. It supplies global counters, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex  for the generic counter and the stdlibs atomic types for the primitive counters.
