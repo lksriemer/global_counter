@@ -10,7 +10,7 @@ Add the following dependency to your Cargo.toml file:
 
 ```toml
 [dependencies]
-global_counter = "0.1.2"
+global_counter = "0.1.3"
 ```
 
 And use the `#[macro_use]` annotation when importing, like this:
