@@ -13,7 +13,7 @@ Add the following dependency to your Cargo.toml file:
 global_counter = "0.1.3"
 ```
 
-And use the `#[macro_use]` annotation when importing, like this:
+Use the `#[macro_use]` annotation when importing, like this:
 
 ```rust
 #[macro_use]
@@ -90,7 +90,55 @@ fn main() {
 }
 ```
 
-TODO: Add primitive counter example
+```rust
+#[macro_use]
+extern crate global_counter;
+
+use global_counter::primitive::CounterUsize;
+use std::sync::{Arc, Mutex};
+
+fn main() {
+    // This is a primitive counter. Implemented using atomics, more efficient than its generic equivalent.
+    // Available for primitive integer types.
+    static COUNTER: CounterUsize = CounterUsize::new(0);
+
+    // We want to copy the 'from' arr to the 'to' arr. From multiple threads.
+    // Please don't do this in actual code.
+    let from = Arc::new(Mutex::new(vec![1, 5, 22, 10000, 43, -4, 39, 1, 2]));
+    let to = Arc::new(Mutex::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]));
+
+    // 3 elemets in two other threads + 3 elements in this thread.
+    // After joining those two threads, all elements will have been copied.
+    let to_arc = to.clone();
+    let from_arc = from.clone();
+    let t1 = std::thread::spawn(move || {
+        // '.inc()' increments the counter, returning the previous value.
+        let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
+        for &i in indices.iter() {
+            to_arc.lock().unwrap()[i] = from_arc.lock().unwrap()[i];
+        }
+    });
+
+    let to_arc = to.clone();
+    let from_arc = from.clone();
+    let t2 = std::thread::spawn(move || {
+        let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
+        for &i in indices.iter() {
+            to_arc.lock().unwrap()[i] = from_arc.lock().unwrap()[i];
+        }
+    });
+
+    let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
+    for &i in indices.iter() {
+        to.lock().unwrap()[i] = from.lock().unwrap()[i];
+    }
+
+    t1.join().unwrap();
+    t2.join().unwrap();
+
+    assert_eq!(**to.lock().unwrap(), **from.lock().unwrap());
+}
+```
 
 ## License
 
