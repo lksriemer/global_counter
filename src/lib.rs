@@ -123,14 +123,10 @@ pub mod generic {
     /// This counter is `Send + Sync` regardless of its contents, meaning it is always globally available from all threads, concurrently.
     ///
     /// Implement `Inc` by supplying an impl for incrementing your type. This implementation does not need to be thread-safe.
-    ///
-    /// Implementation-wise, this is basically a [Mutex from parking_lot](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html).
     #[derive(Debug, Default)]
     pub struct Counter<T: Inc>(Mutex<T>);
 
     /// Creates a new generic, global counter, starting from the given value.
-    ///
-    /// This macro is exported at the crates top-level.
     ///
     /// # Example
     /// ```
@@ -158,8 +154,6 @@ pub mod generic {
     ///
     /// This macro will fail compilation if the given type is not `Default`.
     ///
-    /// This macro is exported at the crates top-level.
-    ///
     /// # Example
     /// ```
     /// # #[macro_use] use crate::global_counter::*;
@@ -184,7 +178,7 @@ pub mod generic {
     impl<T: Inc> Counter<T> {
         /// Creates a new generic counter
         ///
-        /// This function is not const yet. As soon as [Mutex::new()](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well.
+        /// This function is not const yet. As soon as [Mutex::new()](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well, if the `parking_lot` feature is not disabled. 
         /// Then, the exported macros will no longer be needed.
         #[allow(dead_code)]
         #[inline]
@@ -197,7 +191,7 @@ pub mod generic {
         ///
         /// If `T` is not `Clone`, this is the only way to access the current value of the counter.
         ///
-        /// **Warning**: Attempting to access the counter from the thread holding this borrow **will** result in a deadlock.
+        /// **Warning**: Attempting to access the counter from the thread holding this borrow will result in a deadlock or panic.
         /// As long as this borrow is alive, no accesses to the counter from any thread are possible.
         ///
         /// # Good Example - Borrow goes out of scope
@@ -246,7 +240,7 @@ pub mod generic {
         ///     assert_eq!(3, *COUNTER.get_borrowed());}
         /// ```
         ///
-        /// # Bad Example - Deadlock
+        /// # Bad Example
         /// ```no_run
         /// # #[macro_use] use crate::global_counter::*;
         /// // We spawn a new thread. This thread will try lockig the counter twice, causing a deadlock.
@@ -273,7 +267,7 @@ pub mod generic {
             self.lock()
         }
 
-        /// Sets the counter to be the given value.
+        /// Sets the counted value to the given value.
         #[allow(dead_code)]
         #[inline]
         pub fn set(&self, val: T) {
@@ -286,7 +280,7 @@ pub mod generic {
         pub fn inc(&self) {
             self.lock().inc();
         }
-        
+
         #[cfg(parking_lot)]
         #[inline]
         fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_{
