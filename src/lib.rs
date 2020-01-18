@@ -89,7 +89,12 @@ pub mod primitive {
 
 /// This module contains a generic, thread-safe counter and the accompanying `Inc` trait.
 pub mod generic {
+
+    #[cfg(parking_lot)]
     use parking_lot::Mutex;
+
+    #[cfg(not(parking_lot))]
+    use std::sync::Mutex;
 
     /// This trait promises incrementing behaviour.
     /// Implemented for standard integer types.
@@ -265,21 +270,33 @@ pub mod generic {
         #[allow(dead_code)]
         #[inline]
         pub fn get_borrowed(&self) -> impl std::ops::Deref<Target = T> + '_ {
-            self.0.lock()
+            self.lock()
         }
 
         /// Sets the counter to be the given value.
         #[allow(dead_code)]
         #[inline]
         pub fn set(&self, val: T) {
-            *self.0.lock() = val;
+            *self.lock() = val;
         }
 
         /// Increments the counter, delegating the specific implementation to the [Inc](trait.Inc.html) trait.
         #[allow(dead_code)]
         #[inline]
         pub fn inc(&self) {
-            (*self.0.lock()).inc();
+            self.lock().inc();
+        }
+        
+        #[cfg(parking_lot)]
+        #[inline]
+        fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_{
+            self.0.lock()
+        }
+
+        #[cfg(not(parking_lot))]
+        #[inline]
+        fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_{
+            self.0.lock().unwrap()
         }
     }
 
@@ -291,7 +308,7 @@ pub mod generic {
         #[allow(dead_code)]
         #[inline]
         pub fn get_cloned(&self) -> T {
-            (*self.0.lock()).clone()
+            self.lock().clone()
         }
 
         /// Increments the counter, returning the previous value, cloned.
