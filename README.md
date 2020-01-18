@@ -2,9 +2,9 @@
 
 [Documentation](https://docs.rs/global_counter/*/global_counter/)
 
-Sometimes you just want to count something globally, and you really dont want to worry to much about data races, other race conditions, all the fun stuff.
+Sometimes you just want to count something globally, dont want to worry about data races, other race conditions, all the fun stuff.
 
-That's what this crate is for. It supplies global counters, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex  for the generic counter and the stdlibs atomic types for the primitive counters.
+That's what this crate is for. It supplies global counters, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex  for the generic counter (by default) and the stdlibs atomic types for the primitive counters.
 
 ## Usage
 
@@ -20,6 +20,14 @@ Use the `#[macro_use]` annotation when importing, like this:
 ```rust
 #[macro_use]
 extern crate global_counter;
+```
+
+If you want to disable using `parking_lot`, and instead use the stdlibs Mutex, disable the corresponding feature:
+
+```toml
+[dependencies.parking_lot]
+version = "0.1.3"
+default-features = false
 ```
 
 ## Examples
