@@ -352,8 +352,8 @@ mod tests {
         #[macro_use]
         use crate::*;
 
-        // TODO: Add tests for get_borrowed.
-        // TODO: Add tests for get_mut_borrowed.
+        // FIXME: Add tests for get_borrowed.
+        // FIXME: Add tests for get_mut_borrowed.
 
         #[test]
         fn count_to_five_single_threaded() {
@@ -685,6 +685,8 @@ mod tests {
             COUNTERISIZE.inc();
             assert_eq!(COUNTERISIZE.get(), 1);
         }
+
+        // FIXME: Add with_ordering test.
 
         #[test]
         fn primitive_reset() {
