@@ -53,7 +53,7 @@ pub mod primitive {
                     /// Creates a new primitive counter with the given atomic ordering. Can be used in const contexts.
                     ///
                     /// Possible orderings are `Relaxed`, `AcqRel` and `SeqCst`.
-                    /// Supplying an other ordering may result in undefined behaviour.
+                    /// Supplying an other ordering is undefined behaviour.
                     pub const fn with_ordering(val : $primitive, ordering : Ordering) -> $counter{
                         $counter($atomic::new(val), ordering)
                     }
