@@ -34,9 +34,6 @@ pub mod primitive {
                     /// This counter makes all the same guarantees a generic counter does.
                     /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
                     ///
-                    /// Regarding atomic ordering, `Ordering::SeqCst` is currently used whenever possible.
-                    /// This unstable detail should never be relied on for soundness.
-                    ///
                     /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
                     /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
                     ///
