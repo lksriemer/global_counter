@@ -37,8 +37,8 @@ pub mod primitive {
                     /// Regarding atomic ordering, `Ordering::SeqCst` is currently used whenever possible.
                     /// This unstable detail should never be relied on for soundness.
                     ///
-                    /// Please note that Atomics may, depending on your compilation target, [not be implemented using atomic instructions](https://llvm.org/docs/Atomics.html),
-                    /// meaning lock-freendom can in the general case not be guaranteed.
+                    /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
+                    /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
                     ///
                     /// This counter should in general be superior in performance, compared to the equivalent generic counter.
                     #[derive(Debug, Default)]
