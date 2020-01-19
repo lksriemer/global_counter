@@ -36,45 +36,54 @@ pub mod primitive {
                 ///
                 /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
                 /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
-                /// 
+                ///
                 /// This counter should in general be superior in performance, compared to the equivalent generic counter.
-                #[derive(Debug, Default)]
-                pub struct $counter($atomic);
+                #[derive(Debug)]
+                pub struct $counter($atomic, Ordering);
 
                 impl $counter{
                     /// Creates a new primitive counter. Can be used in const contexts.
+                    /// Uses the default `Ordering::SeqCst`, making the strongest ordering guarantees.
                     #[allow(dead_code)]
                     #[inline]
                     pub const fn new(val : $primitive) -> $counter{
-                        $counter($atomic::new(val))
+                        $counter($atomic::new(val), Ordering::SeqCst)
+                    }
+
+                    /// Creates a new primitive counter with the given atomic ordering. Can be used in const contexts.
+                    ///
+                    /// Possible orderings are `Relaxed`, `AcqRel` and `SeqCst`.
+                    /// Supplying an other ordering may result in undefined behaviour.
+                    pub const fn with_ordering(val : $primitive, ordering : Ordering) -> $counter{
+                        $counter($atomic::new(val), ordering)
                     }
 
                     /// Gets the current value of the counter.
                     #[allow(dead_code)]
                     #[inline]
                     pub fn get(&self) -> $primitive{
-                        self.0.load(Ordering::SeqCst)
+                        self.0.load(match self.1{ Ordering::AcqRel => Ordering::Acquire, other => other })
                     }
 
                     /// Sets the counter to a new value.
                     #[allow(dead_code)]
                     #[inline]
                     pub fn set(&self, val : $primitive){
-                        self.0.store(val, Ordering::SeqCst);
+                        self.0.store(val, match self.1{ Ordering::AcqRel => Ordering::Release, other => other });
                     }
 
                     /// Increments the counter by one, returning the previous value.
                     #[allow(dead_code)]
                     #[inline]
                     pub fn inc(&self) -> $primitive{
-                        self.0.fetch_add(1, Ordering::SeqCst)
+                        self.0.fetch_add(1, self.1)
                     }
 
                     /// Resets the counter to zero.
                     #[allow(dead_code)]
                     #[inline]
                     pub fn reset(&self){
-                        self.0.store(0, Ordering::SeqCst);
+                        self.0.store(0, match self.1{ Ordering::AcqRel => Ordering::Release, other => other });
                     }
                 }
             )*
