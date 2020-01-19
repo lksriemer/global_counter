@@ -27,59 +27,59 @@ pub mod primitive {
     };
 
     macro_rules! primitive_counter {
-            ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
-                $(
-                    /// A primitive counter, implemented using atomics from `std::sync::atomic`.
-                    ///
-                    /// This counter makes all the same guarantees a generic counter does.
-                    /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
-                    ///
-                    /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
-                    /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
-                    ///
-                    /// This counter should in general be superior in performance, compared to the equivalent generic counter.
-                    #[derive(Debug, Default)]
-                    pub struct $counter($atomic);
+        ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
+            $(
+                /// A primitive counter, implemented using atomics from `std::sync::atomic`.
+                ///
+                /// This counter makes all the same guarantees a generic counter does.
+                /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
+                ///
+                /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
+                /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
+                /// 
+                /// This counter should in general be superior in performance, compared to the equivalent generic counter.
+                #[derive(Debug, Default)]
+                pub struct $counter($atomic);
 
-                    impl $counter{
-                        /// Creates a new primitive counter. Can be used in const contexts.
-                        #[allow(dead_code)]
-                        #[inline]
-                        pub const fn new(val : $primitive) -> $counter{
-                            $counter($atomic::new(val))
-                        }
-
-                        /// Gets the current value of the counter.
-                        #[allow(dead_code)]
-                        #[inline]
-                        pub fn get(&self) -> $primitive{
-                            self.0.load(Ordering::SeqCst)
-                        }
-
-                        /// Sets the counter to a new value.
-                        #[allow(dead_code)]
-                        #[inline]
-                        pub fn set(&self, val : $primitive){
-                            self.0.store(val, Ordering::SeqCst);
-                        }
-
-                        /// Increments the counter by one, returning the previous value.
-                        #[allow(dead_code)]
-                        #[inline]
-                        pub fn inc(&self) -> $primitive{
-                            self.0.fetch_add(1, Ordering::SeqCst)
-                        }
-
-                        /// Resets the counter to zero.
-                        #[allow(dead_code)]
-                        #[inline]
-                        pub fn reset(&self){
-                            self.0.store(0, Ordering::SeqCst);
-                        }
+                impl $counter{
+                    /// Creates a new primitive counter. Can be used in const contexts.
+                    #[allow(dead_code)]
+                    #[inline]
+                    pub const fn new(val : $primitive) -> $counter{
+                        $counter($atomic::new(val))
                     }
-                )*
-            };
-        }
+
+                    /// Gets the current value of the counter.
+                    #[allow(dead_code)]
+                    #[inline]
+                    pub fn get(&self) -> $primitive{
+                        self.0.load(Ordering::SeqCst)
+                    }
+
+                    /// Sets the counter to a new value.
+                    #[allow(dead_code)]
+                    #[inline]
+                    pub fn set(&self, val : $primitive){
+                        self.0.store(val, Ordering::SeqCst);
+                    }
+
+                    /// Increments the counter by one, returning the previous value.
+                    #[allow(dead_code)]
+                    #[inline]
+                    pub fn inc(&self) -> $primitive{
+                        self.0.fetch_add(1, Ordering::SeqCst)
+                    }
+
+                    /// Resets the counter to zero.
+                    #[allow(dead_code)]
+                    #[inline]
+                    pub fn reset(&self){
+                        self.0.store(0, Ordering::SeqCst);
+                    }
+                }
+            )*
+        };
+    }
 
     primitive_counter![u8 AtomicU8 CounterU8, u16 AtomicU16 CounterU16, u32 AtomicU32 CounterU32, u64 AtomicU64 CounterU64, usize AtomicUsize CounterUsize, i8 AtomicI8 CounterI8, i16 AtomicI16 CounterI16, i32 AtomicI32 CounterI32, i64 AtomicI64 CounterI64, isize AtomicIsize CounterIsize];
 }
@@ -101,17 +101,17 @@ pub mod generic {
     }
 
     macro_rules! imp {
-        ($( $t:ty ) *) => {
-            $(
-                impl Inc for $t{
-                    #[inline]
-                    fn inc(&mut self){
-                        *self += 1;
-                    }
+    ($( $t:ty ) *) => {
+        $(
+            impl Inc for $t{
+                #[inline]
+                fn inc(&mut self){
+                    *self += 1;
                 }
-            )*
-        };
-    }
+            }
+        )*
+    };
+}
 
     imp![u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize];
 
@@ -175,7 +175,7 @@ pub mod generic {
     impl<T: Inc> Counter<T> {
         /// Creates a new generic counter
         ///
-        /// This function is not const yet. As soon as [Mutex::new()](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well, if the `parking_lot` feature is not disabled. 
+        /// This function is not const yet. As soon as [Mutex::new()](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well, if the `parking_lot` feature is not disabled.
         /// Then, the exported macros will no longer be needed.
         #[allow(dead_code)]
         #[inline]
@@ -264,6 +264,17 @@ pub mod generic {
             self.lock()
         }
 
+        /// Returns a mutable borrow of the counted value, meaning the actual value counted by this counter can be mutated through this borrow.
+        ///
+        /// The constraints pointed out for [get_borrowed](struct.Counter.html#method.get_borrowed) also apply here.
+        ///
+        /// Although this API is in theory as safe as its immutable equivalent, usage of it is discouraged, as it is highly unidiomatic.
+        #[allow(dead_code)]
+        #[inline]
+        pub fn get_mut_borrowed(&self) -> impl std::ops::DerefMut<Target = T> + '_ {
+            self.lock()
+        }
+
         /// Sets the counted value to the given value.
         #[allow(dead_code)]
         #[inline]
@@ -280,13 +291,13 @@ pub mod generic {
 
         #[cfg(parking_lot)]
         #[inline]
-        fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_{
+        fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_ {
             self.0.lock()
         }
 
         #[cfg(not(parking_lot))]
         #[inline]
-        fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_{
+        fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_ {
             self.0.lock().unwrap()
         }
     }
@@ -333,6 +344,7 @@ mod tests {
         use crate::*;
 
         // TODO: Add tests for get_borrowed.
+        // TODO: Add tests for get_mut_borrowed.
 
         #[test]
         fn count_to_five_single_threaded() {
