@@ -25,7 +25,7 @@ extern crate global_counter;
 If you want to disable using `parking_lot`, and instead use the stdlibs Mutex, disable the corresponding feature:
 
 ```toml
-[dependencies.parking_lot]
+[dependencies.global_counter]
 version = "0.1.4"
 default-features = false
 ```
