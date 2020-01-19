@@ -12,7 +12,7 @@ Add the following dependency to your Cargo.toml file:
 
 ```toml
 [dependencies]
-global_counter = "0.1.3"
+global_counter = "0.1.4"
 ```
 
 Use the `#[macro_use]` annotation when importing, like this:
@@ -26,7 +26,7 @@ If you want to disable using `parking_lot`, and instead use the stdlibs Mutex, d
 
 ```toml
 [dependencies.parking_lot]
-version = "0.1.3"
+version = "0.1.4"
 default-features = false
 ```
 
