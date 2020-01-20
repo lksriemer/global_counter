@@ -310,13 +310,13 @@ pub mod generic {
         /// This avoid the troubles of [get_borrowed](struct.Counter.html#method.get_borrowed) by cloning the current value.
         ///
         /// Creating a deadlock using this API should be impossible.
-        /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordab
+        /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordable.
         #[inline]
         pub fn get_cloned(&self) -> T {
             self.lock().clone()
         }
 
-        /// Increments the counter, returning the previous value, clon
+        /// Increments the counter, returning the previous value, cloned.
         #[inline]
         pub fn inc_cloning(&self) -> T {
             let prev = self.get_cloned();
@@ -326,7 +326,7 @@ pub mod generic {
     }
 
     impl<T: Inc + Default> Counter<T> {
-        /// Resets the counter to its default val
+        /// Resets the counter to its default value.
         #[inline]
         pub fn reset(&self) {
             self.set(T::default());
