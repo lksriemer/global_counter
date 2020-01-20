@@ -44,7 +44,6 @@ pub mod primitive {
                 impl $counter{
                     /// Creates a new primitive counter. Can be used in const contexts.
                     /// Uses the default `Ordering::SeqCst`, making the strongest ordering guarantees.
-                    #[allow(dead_code)]
                     #[inline]
                     pub const fn new(val : $primitive) -> $counter{
                         $counter($atomic::new(val), Ordering::SeqCst)
@@ -59,28 +58,24 @@ pub mod primitive {
                     }
 
                     /// Gets the current value of the counter.
-                    #[allow(dead_code)]
                     #[inline]
                     pub fn get(&self) -> $primitive{
                         self.0.load(match self.1{ Ordering::AcqRel => Ordering::Acquire, other => other })
                     }
 
                     /// Sets the counter to a new value.
-                    #[allow(dead_code)]
                     #[inline]
                     pub fn set(&self, val : $primitive){
                         self.0.store(val, match self.1{ Ordering::AcqRel => Ordering::Release, other => other });
                     }
 
                     /// Increments the counter by one, returning the previous value.
-                    #[allow(dead_code)]
                     #[inline]
                     pub fn inc(&self) -> $primitive{
                         self.0.fetch_add(1, self.1)
                     }
 
                     /// Resets the counter to zero.
-                    #[allow(dead_code)]
                     #[inline]
                     pub fn reset(&self){
                         self.0.store(0, match self.1{ Ordering::AcqRel => Ordering::Release, other => other });
@@ -186,7 +181,6 @@ pub mod generic {
         ///
         /// This function is not const yet. As soon as [Mutex::new()](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well, if the `parking_lot` feature is not disabled.
         /// Then, the exported macros will no longer be needed.
-        #[allow(dead_code)]
         #[inline]
         pub fn new(val: T) -> Counter<T> {
             Counter(Mutex::new(val))
@@ -267,7 +261,6 @@ pub mod generic {
         ///     assert_eq!(0, *counter_value_borrowed);
         /// });
         /// ```
-        #[allow(dead_code)]
         #[inline]
         pub fn get_borrowed(&self) -> impl std::ops::Deref<Target = T> + '_ {
             self.lock()
@@ -278,21 +271,18 @@ pub mod generic {
         /// The constraints pointed out for [get_borrowed](struct.Counter.html#method.get_borrowed) also apply here.
         ///
         /// Although this API is in theory as safe as its immutable equivalent, usage of it is discouraged, as it is highly unidiomatic.
-        #[allow(dead_code)]
         #[inline]
         pub fn get_mut_borrowed(&self) -> impl std::ops::DerefMut<Target = T> + '_ {
             self.lock()
         }
 
         /// Sets the counted value to the given value.
-        #[allow(dead_code)]
         #[inline]
         pub fn set(&self, val: T) {
             *self.lock() = val;
         }
 
         /// Increments the counter, delegating the specific implementation to the [Inc](trait.Inc.html) trait.
-        #[allow(dead_code)]
         #[inline]
         pub fn inc(&self) {
             self.lock().inc();
@@ -315,15 +305,13 @@ pub mod generic {
         /// This avoid the troubles of [get_borrowed](struct.Counter.html#method.get_borrowed) by cloning the current value.
         ///
         /// Creating a deadlock using this API should be impossible.
-        /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordable.
-        #[allow(dead_code)]
+        /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordab
         #[inline]
         pub fn get_cloned(&self) -> T {
             self.lock().clone()
         }
 
-        /// Increments the counter, returning the previous value, cloned.
-        #[allow(dead_code)]
+        /// Increments the counter, returning the previous value, clon
         #[inline]
         pub fn inc_cloning(&self) -> T {
             let prev = self.get_cloned();
@@ -333,8 +321,7 @@ pub mod generic {
     }
 
     impl<T: Inc + Default> Counter<T> {
-        /// Resets the counter to its default value.
-        #[allow(dead_code)]
+        /// Resets the counter to its default val
         #[inline]
         pub fn reset(&self) {
             self.set(T::default());
