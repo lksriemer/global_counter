@@ -34,8 +34,12 @@ pub mod primitive {
                 /// This counter makes all the same guarantees a generic counter does.
                 /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
                 ///
-                /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
+                /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions 
+                /// (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
                 /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
+                /// 
+                /// The given atomic ordering is rusts [core::sync::atomic::Ordering](https://doc.rust-lang.org/core/sync/atomic/enum.Ordering.html), 
+                /// with `AcqRel` translating to `AcqRel`, `Acq` or `Rel`, depending on the operation performed.
                 ///
                 /// This counter should in general be superior in performance, compared to the equivalent generic counter.
                 #[derive(Debug)]
@@ -53,6 +57,7 @@ pub mod primitive {
                     ///
                     /// Possible orderings are `Relaxed`, `AcqRel` and `SeqCst`.
                     /// Supplying an other ordering is undefined behaviour.
+                    #[inline]
                     pub const fn with_ordering(val : $primitive, ordering : Ordering) -> $counter{
                         $counter($atomic::new(val), ordering)
                     }
@@ -652,8 +657,6 @@ mod tests {
     mod primitive {
 
         use crate::primitive::*;
-
-        // FIXME: Add with_ordering tests.
 
         #[test]
         fn primitive_new_const() {
