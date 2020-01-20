@@ -342,6 +342,12 @@ pub mod generic {
     }
 }
 
+// TODO: Think about test organization.
+// Maybe a seperate test crate would be better?
+// Or a seperate file?
+// Should codecov be set up?
+// What about Travis? Necessary?
+
 #[cfg(test)]
 mod tests {
 
@@ -352,8 +358,35 @@ mod tests {
         #[macro_use]
         use crate::*;
 
-        // FIXME: Add tests for get_borrowed.
-        // FIXME: Add tests for get_mut_borrowed.
+        // TODO: Clean up this mess.
+        // Maybe move all test helper structs to an extra module.
+
+        #[derive(Default, PartialEq, Eq, Debug)]
+        struct PanicOnClone(i32);
+
+        impl Clone for PanicOnClone{
+            fn clone(&self) -> Self{
+                panic!("PanicOnClone cloned");
+            }
+        }
+
+        impl crate::generic::Inc for PanicOnClone{
+            fn inc(&mut self){
+                self.0.inc();
+            }
+        }
+
+        #[test]
+        fn get_borrowed_doesnt_clone(){
+            global_default_counter!(COUNTER, PanicOnClone);
+            assert_eq!(*COUNTER.get_borrowed(), PanicOnClone(0));
+        }
+
+        #[test]
+        fn get_mut_borrowed_doesnt_clone(){
+            global_default_counter!(COUNTER, PanicOnClone);
+            assert_eq!(*COUNTER.get_mut_borrowed(), PanicOnClone(0));
+        }
 
         #[test]
         fn count_to_five_single_threaded() {
@@ -632,6 +665,8 @@ mod tests {
     mod primitive {
 
         use crate::primitive::*;
+
+        // FIXME: Add with_ordering tests.
 
         #[test]
         fn primitive_new_const() {
