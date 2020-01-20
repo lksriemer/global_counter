@@ -22,7 +22,7 @@ Use the `#[macro_use]` annotation when importing, like this:
 extern crate global_counter;
 ```
 
-If you want to disable using `parking_lot`, and instead use the stdlibs Mutex, disable the corresponding feature:
+If you want to disable using `parking_lot`, and instead use the stdlibs Mutex, disable the default features:
 
 ```toml
 [dependencies.global_counter]
