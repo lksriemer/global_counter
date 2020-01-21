@@ -31,6 +31,7 @@ default-features = false
 ## Quickstart
 
 ### Create a counter
+
 ```rust
 // Generic
 global_counter!(COUTER_NAME, CountedType, CountedType::default());
@@ -38,11 +39,15 @@ global_counter!(COUTER_NAME, CountedType, CountedType::default());
 // Primitive
 static COUNTER_NAME : CounterI16 = CounterI16::new(0);
 ```
+
 ### Count your counter up
+
 ```rust
 COUNTER_NAME.inc();
 ```
+
 ### Get the value of your counter
+
 ```rust
 // Generic
 let val = COUNTER_NAME.get_cloned();
