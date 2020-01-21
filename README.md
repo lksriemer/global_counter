@@ -2,9 +2,7 @@
 
 [Documentation](https://docs.rs/global_counter/*/global_counter/)
 
-Sometimes you just want to count something globally, dont want to worry about data races, other race conditions, all the fun stuff.
-
-That's what this crate is for. It supplies global counters, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex  for the generic counter (by default) and the stdlibs atomic types for the primitive counters.
+This crate implements global counters, generic and primitive, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex (by default) and the stdlibs atomic types.
 
 ## Usage
 
@@ -30,7 +28,35 @@ version = "0.1.4"
 default-features = false
 ```
 
-## Examples
+## Quickstart
+
+### Create a counter
+
+```rust
+// Generic
+global_counter!(COUTER_NAME, CountedType, CountedType::default());
+
+// Primitive
+static COUNTER_NAME : CounterI16 = CounterI16::new(0);
+```
+
+### Count your counter up
+
+```rust
+COUNTER_NAME.inc();
+```
+
+### Get the value of your counter
+
+```rust
+// Generic
+let val = COUNTER_NAME.get_cloned();
+
+// Primitive
+let val = COUNTER_NAME.get();
+```
+
+## Example - No cloning of counted struct
 
 ```rust
 #[macro_use]
@@ -99,6 +125,8 @@ fn main() {
     assert_eq!((*COUNTER.get_borrowed()).card(), 2 << 20);
 }
 ```
+
+## Example - Primitive counter used for indexing into vec from multiple threads
 
 ```rust
 #[macro_use]
