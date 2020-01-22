@@ -28,6 +28,8 @@ pub mod primitive {
     };
     use std::thread::LocalKey;
 
+
+
     /// A fast approximate counter.
     /// 
     /// This counter operates by having a local counter for each thread, which is occasionally flushed to the main global counter.
@@ -42,6 +44,9 @@ pub mod primitive {
     /// This counter also features a `flush` method,
     /// which can be used to manually flush the local counter of the current thread, increasing the accuracy, 
     /// and ultimately making it possible to achieve absolute accuracy.
+    /// 
+    /// This counter is ony available for usize, if you need other types drop by the repo and open an issue. 
+    /// I wasn't able to think of a reason why somebody would want to approximately count using i8s.
     pub struct ApproxCounter {
         threshold: usize,
         global_counter: AtomicUsize,
