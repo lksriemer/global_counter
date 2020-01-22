@@ -29,12 +29,12 @@ pub mod primitive {
     use std::thread::LocalKey;
 
     /// A flushing counter.
-    /// 
-    /// This counter is intended to be used in one specific way: 
+    ///
+    /// This counter is intended to be used in one specific way:
     /// First, all counting threads increment the counter,
     /// then, every counting thread calls `flush` after it is done incrementing,
     /// then, after every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the starting offset).
-    /// 
+    ///
     /// In theory, this counter is equivalent to an approximate counter with its resolution set to infinity.
     pub struct FlushingCounter {
         global_counter: AtomicUsize,
@@ -44,7 +44,7 @@ pub mod primitive {
         thread_local_counter: &'static LocalKey<UnsafeCell<usize>>,
     }
 
-    impl FlushingCounter{
+    impl FlushingCounter {
         /// Creates a new counter, with the given starting value. Can be used in static contexts.
         #[inline]
         pub const fn new(start: usize) -> Self {
@@ -90,11 +90,11 @@ pub mod primitive {
     ///
     /// The accuracy of the counter is determined by its `resolution` and the number of threads counting on it:
     /// The value returned by `get` is guaranteed to always be less than or to equal this number of threads multiplied with the resolution minus one
-    /// away from the actual amount of times `inc` has been called (+ start offset): 
-    /// 
+    /// away from the actual amount of times `inc` has been called (+ start offset):
+    ///
     /// `|get - (actual + start)| <= num_threads * (resolution - 1)`
-    /// 
-    /// 
+    ///
+    ///
     /// This is the only guarantee made.
     ///
     /// Setting the resolution to 1 will just make it a worse primitive counter, don't do that. Increasing the resolution increases this counters performance.
@@ -933,6 +933,122 @@ mod tests {
         fn approx_flushed_count_to_50000_par_threaded() {
             const LOCAL_ACC: usize = 419;
             static COUNTER: ApproxCounter = ApproxCounter::new(0, LOCAL_ACC);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            let t_1 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            let t_2 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            let t_3 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            let t_4 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+
+            t_0.join().expect("Err joining thread");
+            t_1.join().expect("Err joining thread");
+            t_2.join().expect("Err joining thread");
+            t_3.join().expect("Err joining thread");
+            t_4.join().expect("Err joining thread");
+
+            assert_eq!(50000, COUNTER.get());
+        }  
+
+        #[test]
+        fn flushing_new_const(){
+            static COUNTER: FlushingCounter = FlushingCounter::new(0);
+            assert_eq!(COUNTER.get(), 0);
+        }
+        
+        #[test]
+        fn flushing_count_to_50000_single_threaded() {
+            static COUNTER: FlushingCounter = FlushingCounter::new(0);
+            assert_eq!(COUNTER.get(), 0);
+
+            for _ in 0..50000 {
+                COUNTER.inc();
+            }
+
+            COUNTER.flush();
+
+            assert_eq!(50000, COUNTER.get());
+        }
+
+        #[test]
+        fn flushing_count_to_50000_seq_threaded() {
+            static COUNTER: FlushingCounter = FlushingCounter::new(0);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            t_0.join().expect("Err joining thread");
+            assert_eq!(10000, COUNTER.get());
+
+            let t_1 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            t_1.join().expect("Err joining thread");
+            assert_eq!(20000, COUNTER.get());
+
+            let t_2 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            t_2.join().expect("Err joining thread");
+            assert_eq!(30000, COUNTER.get());
+
+            let t_3 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            t_3.join().expect("Err joining thread");
+            assert_eq!(40000, COUNTER.get());
+
+            let t_4 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush();
+            });
+            t_4.join().expect("Err joining thread");
+            assert_eq!(50000, COUNTER.get());
+        }
+
+        #[test]
+        fn flushing_count_to_50000_par_threaded(){
+            static COUNTER : FlushingCounter = FlushingCounter::new(0);
             assert_eq!(COUNTER.get(), 0);
 
             let t_0 = std::thread::spawn(|| {
