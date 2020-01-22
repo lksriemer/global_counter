@@ -28,36 +28,89 @@ pub mod primitive {
     };
     use std::thread::LocalKey;
 
-
-
-    /// A fast approximate counter.
+    /// A flushing counter.
     /// 
+    /// This counter is intended to be used in one specific way: 
+    /// First, all counting threads increment the counter,
+    /// then, every counting thread calls `flush` after it is done incrementing,
+    /// then, after every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the starting offset).
+    /// 
+    /// In theory, this counter is equivalent to an approximate counter with its resolution set to infinity.
+    pub struct FlushingCounter {
+        global_counter: AtomicUsize,
+
+        // This could also be a RefCell, but this impl is also safe- or at least I hope so-
+        // and more efficient, as no runtime borrowchecking is needed.
+        thread_local_counter: &'static LocalKey<UnsafeCell<usize>>,
+    }
+
+    impl FlushingCounter{
+        /// Creates a new counter, with the given starting value. Can be used in static contexts.
+        #[inline]
+        pub const fn new(start: usize) -> Self {
+            thread_local!(pub static TL_COUNTER : UnsafeCell<usize> = UnsafeCell::new(0));
+            FlushingCounter {
+                global_counter: AtomicUsize::new(start),
+                thread_local_counter: &TL_COUNTER,
+            }
+        }
+
+        /// Increments the counter by one.
+        #[inline]
+        pub fn inc(&self) {
+            self.thread_local_counter.with(|tlc| unsafe {
+                // This is safe, because concurrent accesses to a thread-local are obviously not possible,
+                // and aliasing is not possible using the counters API.
+                *tlc.get() += 1;
+            });
+        }
+
+        /// Gets the current value of the counter. This only returns the correct value after all local counters have been flushed.
+        #[inline]
+        pub fn get(&self) -> usize {
+            self.global_counter.load(Ordering::Relaxed)
+        }
+
+        /// Flushes the local counter to the global.
+        ///
+        /// For more information, see the struct-level documentation.
+        #[inline]
+        pub fn flush(&self) {
+            self.thread_local_counter.with(|tlc| unsafe {
+                let tlc = &mut *tlc.get();
+                self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
+                *tlc = 0;
+            });
+        }
+    }
+
+    /// An approximate counter.
+    ///
     /// This counter operates by having a local counter for each thread, which is occasionally flushed to the main global counter.
-    /// 
-    /// The accuracy of the counter is determined by its `resolution` and the number of threads counting on it: 
+    ///
+    /// The accuracy of the counter is determined by its `resolution` and the number of threads counting on it:
     /// The value returned by `get` is guaranteed to always be less than or to equal this number of threads multiplied with the resolution minus one
     /// away from the actual amount of times `inc` has been called: `|get - actual| <= num_threads * (resolution - 1)`.
     /// This is the only guarantee made.
-    /// 
+    ///
     /// Setting the resolution to 1 will just make it a worse primitive counter, don't do that. Increasing the resolution increases this counters performance.
-    /// 
+    ///
     /// This counter also features a `flush` method,
-    /// which can be used to manually flush the local counter of the current thread, increasing the accuracy, 
+    /// which can be used to manually flush the local counter of the current thread, increasing the accuracy,
     /// and ultimately making it possible to achieve absolute accuracy.
-    /// 
-    /// This counter is ony available for usize, if you need other types drop by the repo and open an issue. 
+    ///
+    /// This counter is ony available for usize, if you need other types drop by the repo and open an issue.
     /// I wasn't able to think of a reason why somebody would want to approximately count using i8s.
     pub struct ApproxCounter {
         threshold: usize,
         global_counter: AtomicUsize,
 
-        // This could also be a RefCell, but this impl is also safe- or at least I hope so- 
+        // This could also be a RefCell, but this impl is also safe- or at least I hope so-
         // and more efficient, as no runtime borrowchecking is needed.
         thread_local_counter: &'static LocalKey<UnsafeCell<usize>>,
     }
 
     impl ApproxCounter {
-
         // TODO: Evaluate which atomic ordering is the minimum upholding all these guarantees.
         // Proof needed, altough relaxed seems to pass all tests.
 
@@ -73,12 +126,11 @@ pub mod primitive {
         }
 
         /// Increments the counter by one.
-        /// 
+        ///
         /// Note that this call will probably leave the value returned by `get` unchanged.
         #[inline]
         pub fn inc(&self) {
             self.thread_local_counter.with(|tlc| unsafe {
-
                 // This is safe, because concurrent accesses to a thread-local are obviously not possible,
                 // and aliasing is not possible using the counters API.
                 let tlc = &mut *tlc.get();
@@ -90,8 +142,8 @@ pub mod primitive {
             });
         }
 
-        /// Gets the current value of the counter. For more information, see the struct-level documentation. 
-        /// 
+        /// Gets the current value of the counter. For more information, see the struct-level documentation.
+        ///
         /// Especially note, that two calls to `get` with one `inc` interleaved are not guaranteed to, and almost certainely wont, return different values.
         #[inline]
         pub fn get(&self) -> usize {
@@ -99,11 +151,11 @@ pub mod primitive {
         }
 
         /// Flushes the local counter to the global.
-        /// 
-        /// Note that this only means the local counter of the thread calling is flushed. If you want to flush the local counters of N threads, 
+        ///
+        /// Note that this only means the local counter of the thread calling is flushed. If you want to flush the local counters of N threads,
         /// each thread needs to call this.
-        /// 
-        /// If every thread which incremented this counter has flushed its local counter, and no other increments have been made or are being made, 
+        ///
+        /// If every thread which incremented this counter has flushed its local counter, and no other increments have been made or are being made,
         /// a subsequent call to `get` is guaranteed to return the exact count.
         /// However, if you can make use of this, consider if a [FlushingCounter](struct.FlushingCounter.html) fits your usecase better.
         // TODO: Introduce example(s).
