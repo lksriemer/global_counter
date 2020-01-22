@@ -39,7 +39,7 @@ pub mod primitive {
     /// 
     /// Setting the resolution to 1 will just make it a worse primitive counter, dom't do that. Increasing the resolution increases this counters performance.
     /// 
-    /// This counter also features a `flush_local_counter` method,
+    /// This counter also features a `flush` method,
     /// which can be used to manually flush the local counter of the current thread, increasing the accuracy, 
     /// and ultimately making it possible to achieve absolute accuracy.
     pub struct ApproxCounter {
@@ -97,7 +97,7 @@ pub mod primitive {
         /// However, if you can make use of this, consider if a [FlushingCounter](struct.FlushingCounter.html) fits your usecase better.
         // TODO: Introduce example(s).
         #[inline]
-        pub fn flush_local_counter(&self) {
+        pub fn flush(&self) {
             self.thread_local_counter.with(|tlc| unsafe {
                 let tlc = &mut *tlc.get();
                 self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
@@ -751,7 +751,7 @@ mod tests {
             static COUNTER: ApproxCounter = ApproxCounter::new(0, 1024);
             assert_eq!(COUNTER.get(), 0);
             COUNTER.inc();
-            COUNTER.flush_local_counter();
+            COUNTER.flush();
             assert_eq!(COUNTER.get(), 1);
         }
 
@@ -872,31 +872,31 @@ mod tests {
                 for _ in 0..10000 {
                     COUNTER.inc();
                 }
-                COUNTER.flush_local_counter();
+                COUNTER.flush();
             });
             let t_1 = std::thread::spawn(|| {
                 for _ in 0..10000 {
                     COUNTER.inc();
                 }
-                COUNTER.flush_local_counter();
+                COUNTER.flush();
             });
             let t_2 = std::thread::spawn(|| {
                 for _ in 0..10000 {
                     COUNTER.inc();
                 }
-                COUNTER.flush_local_counter();
+                COUNTER.flush();
             });
             let t_3 = std::thread::spawn(|| {
                 for _ in 0..10000 {
                     COUNTER.inc();
                 }
-                COUNTER.flush_local_counter();
+                COUNTER.flush();
             });
             let t_4 = std::thread::spawn(|| {
                 for _ in 0..10000 {
                     COUNTER.inc();
                 }
-                COUNTER.flush_local_counter();
+                COUNTER.flush();
             });
 
             t_0.join().expect("Err joining thread");
