@@ -90,7 +90,11 @@ pub mod primitive {
     ///
     /// The accuracy of the counter is determined by its `resolution` and the number of threads counting on it:
     /// The value returned by `get` is guaranteed to always be less than or to equal this number of threads multiplied with the resolution minus one
-    /// away from the actual amount of times `inc` has been called (+ start offset): `|get - (actual + start)| <= num_threads * (resolution - 1)`.
+    /// away from the actual amount of times `inc` has been called (+ start offset): 
+    /// 
+    /// `|get - (actual + start)| <= num_threads * (resolution - 1)`
+    /// 
+    /// 
     /// This is the only guarantee made.
     ///
     /// Setting the resolution to 1 will just make it a worse primitive counter, don't do that. Increasing the resolution increases this counters performance.
