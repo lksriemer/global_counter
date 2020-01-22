@@ -28,13 +28,32 @@ pub mod primitive {
     };
     use std::thread::LocalKey;
 
+    /// A fast approximate counter.
+    /// 
+    /// This counter operates by having a local counter for each thread, which is occasionally flushed to the main global counter.
+    /// 
+    /// The accuracy of the counter is determined by its `resolution` and the number of threads counting on it: 
+    /// The value returned by `get` is guaranteed to always be less than or to equal this number of threads multiplied with the resolution minus one
+    /// away from the actual amount of times `inc` has been called (`|get - actual| <= num_threads * (resolution - 1)`).
+    /// This is the only guarantee made.
+    /// 
+    /// Setting the resolution to 1 will just make it a worse primitive counter, dom't do that. Increasing the resolution increases this counters performance.
+    /// 
+    /// This counter also features a `flush_local_counter` method,
+    /// which can be used to manually flush the local counter of the current thread, increasing the accuracy, 
+    /// and ultimately making it possible to achieve absolute accuracy.
     pub struct ApproxCounter {
         threshold: usize,
         global_counter: AtomicUsize,
+
+        // This could also be a RefCell, but this impl is also safe- or at least I hope so- 
+        // and more efficient, as no runtime borrowchecking is needed.
         thread_local_counter: &'static LocalKey<UnsafeCell<usize>>,
     }
 
     impl ApproxCounter {
+
+        /// Creates a new counter, with the given start value and resolution. Can be used in static contexts.
         #[inline]
         pub const fn new(start: usize, resolution: usize) -> Self {
             thread_local!(pub static TL_COUNTER : UnsafeCell<usize> = UnsafeCell::new(0));
@@ -45,6 +64,9 @@ pub mod primitive {
             }
         }
 
+        /// Increments the counter by one.
+        /// 
+        /// Note that this call will probably leave the value returned by `get` unchanged.
         #[inline]
         pub fn inc(&self) {
             self.thread_local_counter.with(|tlc| unsafe {
@@ -57,11 +79,23 @@ pub mod primitive {
             });
         }
 
+        /// Gets the current value of the counter. For more information, see the struct-level documentation. 
+        /// 
+        /// Especially note, that two calls to `get` with one `inc` interleaved are not guaranteed to, and almost certainely wont, return different values.
         #[inline]
         pub fn get(&self) -> usize {
             self.global_counter.load(Ordering::Relaxed)
         }
 
+        /// Flushes the local counter to the global.
+        /// 
+        /// Note that this only means the local counter of the thread calling is flushed. If you want to flush the local counters of N threads, 
+        /// each thread needs to call this.
+        /// 
+        /// If every thread which incremented this counter has flushed its local counter, and no other increments have been made or are being made, 
+        /// a subsequent call to `get` is guaranteed to return the exact count.
+        /// However, if you can make use of this, consider if a [FlushingCounter](struct.FlushingCounter.html) fits your usecase better.
+        // TODO: Introduce example(s).
         #[inline]
         pub fn flush_local_counter(&self) {
             self.thread_local_counter.with(|tlc| unsafe {
@@ -740,7 +774,7 @@ mod tests {
         fn approx_count_to_50000_seq_threaded() {
             const NUM_THREADS: usize = 5;
             const LOCAL_ACC: usize = 256;
-            const GLOBAL_ACC: usize = LOCAL_ACC * NUM_THREADS;
+            const GLOBAL_ACC: usize = (LOCAL_ACC - 1) * NUM_THREADS;
             static COUNTER: ApproxCounter = ApproxCounter::new(0, LOCAL_ACC);
             assert_eq!(COUNTER.get(), 0);
 
@@ -789,7 +823,7 @@ mod tests {
         fn approx_count_to_50000_par_threaded() {
             const NUM_THREADS: usize = 5;
             const LOCAL_ACC: usize = 419;
-            const GLOBAL_ACC: usize = LOCAL_ACC * NUM_THREADS;
+            const GLOBAL_ACC: usize = (LOCAL_ACC - 1) * NUM_THREADS;
             static COUNTER: ApproxCounter = ApproxCounter::new(0, LOCAL_ACC);
             assert_eq!(COUNTER.get(), 0);
 
