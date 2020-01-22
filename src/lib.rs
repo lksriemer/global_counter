@@ -1,4 +1,10 @@
-//! This is a minimal library implementing global, thread-safe counters.
+//! This crate implements global, thread-safe counters.
+//! 
+//! Concerning performance, the general ranking is:
+//! 
+//! [FlushingCounter](primitive/struct.FlushingCounter.html) (fastest) > [ApproxCounter](primitive/struct.ApproxCounter.html) >> typed primitive::Counter >>> [Counter](generic/struct.Counter.html) (slowest)
+//! 
+//! Don't forget to make your own benchmarks.
 
 extern crate lazy_static;
 
@@ -19,7 +25,7 @@ pub mod global_counter {
     }
 }
 
-/// This module contains atomic counters for primitive integer types.
+/// This module contains counters for primitive integer types.
 pub mod primitive {
     use std::cell::UnsafeCell;
     use std::sync::atomic::{
@@ -31,11 +37,14 @@ pub mod primitive {
     /// A flushing counter.
     ///
     /// This counter is intended to be used in one specific way:
-    /// First, all counting threads increment the counter,
-    /// then, every counting thread calls `flush` after it is done incrementing,
-    /// then, after every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the starting offset).
+    /// * First, all counting threads increment the counter
+    /// * Then, every counting thread calls `flush` after it is done incrementing
+    /// * Then, after every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the starting offset)
     ///
     /// In theory, this counter is equivalent to an approximate counter with its resolution set to infinity.
+    /// 
+    /// This counter is ony available for usize, if you need other types drop by the repo and open an issue.
+    /// I wasn't able to think of a reason why somebody would want to flush count using i8s.
     pub struct FlushingCounter {
         global_counter: AtomicUsize,
 
@@ -176,10 +185,11 @@ pub mod primitive {
     macro_rules! primitive_counter {
         ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
             $(
-                /// A primitive counter, implemented using atomics from `std::sync::atomic`.
+                /// An atomic primitive counter.
                 ///
                 /// This counter makes all the same guarantees a generic counter does.
                 /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
+                /// The counters `get` method will always return exactly the amount of times, `inc` has been called (+ start offset), up to this moment.
                 ///
                 /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions
                 /// (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
@@ -275,7 +285,7 @@ pub mod generic {
     ///
     /// This counter is `Send + Sync` regardless of its contents, meaning it is always globally available from all threads, concurrently.
     ///
-    /// Implement `Inc` by supplying an impl for incrementing your type. This implementation does not need to be thread-safe.
+    /// Implement `Inc` by supplying an impl for incrementing your type, this implementation does not need to be thread-safe.
     #[derive(Debug, Default)]
     pub struct Counter<T: Inc>(Mutex<T>);
 
