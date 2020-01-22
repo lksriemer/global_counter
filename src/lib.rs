@@ -34,10 +34,10 @@ pub mod primitive {
     /// 
     /// The accuracy of the counter is determined by its `resolution` and the number of threads counting on it: 
     /// The value returned by `get` is guaranteed to always be less than or to equal this number of threads multiplied with the resolution minus one
-    /// away from the actual amount of times `inc` has been called (`|get - actual| <= num_threads * (resolution - 1)`).
+    /// away from the actual amount of times `inc` has been called: `|get - actual| <= num_threads * (resolution - 1)`.
     /// This is the only guarantee made.
     /// 
-    /// Setting the resolution to 1 will just make it a worse primitive counter, dom't do that. Increasing the resolution increases this counters performance.
+    /// Setting the resolution to 1 will just make it a worse primitive counter, don't do that. Increasing the resolution increases this counters performance.
     /// 
     /// This counter also features a `flush` method,
     /// which can be used to manually flush the local counter of the current thread, increasing the accuracy, 
@@ -52,6 +52,9 @@ pub mod primitive {
     }
 
     impl ApproxCounter {
+
+        // TODO: Evaluate which atomic ordering is the minimum upholding all these guarantees.
+        // Proof needed, altough relaxed seems to pass all tests.
 
         /// Creates a new counter, with the given start value and resolution. Can be used in static contexts.
         #[inline]
@@ -70,10 +73,13 @@ pub mod primitive {
         #[inline]
         pub fn inc(&self) {
             self.thread_local_counter.with(|tlc| unsafe {
+
+                // This is safe, because concurrent accesses to a thread-local are obviously not possible,
+                // and aliasing is not possible using the counters API.
                 let tlc = &mut *tlc.get();
                 *tlc += 1;
                 if *tlc >= self.threshold {
-                    self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
+                    self.global_counter.fetch_add(*tlc, Ordering::SeqCst);
                     *tlc = 0;
                 }
             });
@@ -84,7 +90,7 @@ pub mod primitive {
         /// Especially note, that two calls to `get` with one `inc` interleaved are not guaranteed to, and almost certainely wont, return different values.
         #[inline]
         pub fn get(&self) -> usize {
-            self.global_counter.load(Ordering::Relaxed)
+            self.global_counter.load(Ordering::SeqCst)
         }
 
         /// Flushes the local counter to the global.
@@ -100,7 +106,7 @@ pub mod primitive {
         pub fn flush(&self) {
             self.thread_local_counter.with(|tlc| unsafe {
                 let tlc = &mut *tlc.get();
-                self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
+                self.global_counter.fetch_add(*tlc, Ordering::SeqCst);
                 *tlc = 0;
             });
         }
