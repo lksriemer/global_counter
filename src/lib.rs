@@ -21,10 +21,56 @@ pub mod global_counter {
 
 /// This module contains atomic counters for primitive integer types.
 pub mod primitive {
+    use std::cell::UnsafeCell;
     use std::sync::atomic::{
         AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU64,
         AtomicU8, AtomicUsize, Ordering,
     };
+    use std::thread::LocalKey;
+
+    pub struct ApproxCounter {
+        threshold: usize,
+        global_counter: AtomicUsize,
+        thread_local_counter: &'static LocalKey<UnsafeCell<usize>>,
+    }
+
+    impl ApproxCounter {
+        #[inline]
+        pub const fn new(start: usize, resolution: usize) -> Self {
+            thread_local!(pub static TL_COUNTER : UnsafeCell<usize> = UnsafeCell::new(0));
+            ApproxCounter {
+                threshold: resolution,
+                global_counter: AtomicUsize::new(start),
+                thread_local_counter: &TL_COUNTER,
+            }
+        }
+
+        #[inline]
+        pub fn inc(&self) {
+            self.thread_local_counter.with(|tlc| unsafe {
+                let tlc = &mut *tlc.get();
+                *tlc += 1;
+                if *tlc >= self.threshold {
+                    self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
+                    *tlc = 0;
+                }
+            });
+        }
+
+        #[inline]
+        pub fn get(&self) -> usize {
+            self.global_counter.load(Ordering::Relaxed)
+        }
+
+        #[inline]
+        pub fn flush_local_counter(&self) {
+            self.thread_local_counter.with(|tlc| unsafe {
+                let tlc = &mut *tlc.get();
+                self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
+                *tlc = 0;
+            });
+        }
+    }
 
     macro_rules! primitive_counter {
         ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
@@ -34,11 +80,11 @@ pub mod primitive {
                 /// This counter makes all the same guarantees a generic counter does.
                 /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
                 ///
-                /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions 
+                /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions
                 /// (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
                 /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
-                /// 
-                /// The given atomic ordering is rusts [core::sync::atomic::Ordering](https://doc.rust-lang.org/core/sync/atomic/enum.Ordering.html), 
+                ///
+                /// The given atomic ordering is rusts [core::sync::atomic::Ordering](https://doc.rust-lang.org/core/sync/atomic/enum.Ordering.html),
                 /// with `AcqRel` translating to `AcqRel`, `Acq` or `Rel`, depending on the operation performed.
                 ///
                 /// This counter should in general be superior in performance, compared to the equivalent generic counter.
@@ -120,7 +166,7 @@ pub mod generic {
             }
         )*
     };
-}
+    }
 
     imp![u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize];
 
@@ -356,26 +402,26 @@ mod tests {
         #[derive(Default, PartialEq, Eq, Debug)]
         struct PanicOnClone(i32);
 
-        impl Clone for PanicOnClone{
-            fn clone(&self) -> Self{
+        impl Clone for PanicOnClone {
+            fn clone(&self) -> Self {
                 panic!("PanicOnClone cloned");
             }
         }
 
-        impl crate::generic::Inc for PanicOnClone{
-            fn inc(&mut self){
+        impl crate::generic::Inc for PanicOnClone {
+            fn inc(&mut self) {
                 self.0.inc();
             }
         }
 
         #[test]
-        fn get_borrowed_doesnt_clone(){
+        fn get_borrowed_doesnt_clone() {
             global_default_counter!(COUNTER, PanicOnClone);
             assert_eq!(*COUNTER.get_borrowed(), PanicOnClone(0));
         }
 
         #[test]
-        fn get_mut_borrowed_doesnt_clone(){
+        fn get_mut_borrowed_doesnt_clone() {
             global_default_counter!(COUNTER, PanicOnClone);
             assert_eq!(*COUNTER.get_mut_borrowed(), PanicOnClone(0));
         }
@@ -657,6 +703,176 @@ mod tests {
     mod primitive {
 
         use crate::primitive::*;
+
+        #[test]
+        fn approx_new_const() {
+            static COUNTER: ApproxCounter = ApproxCounter::new(0, 1024);
+            assert_eq!(COUNTER.get(), 0);
+            COUNTER.inc();
+            assert!(COUNTER.get() <= 1);
+        }
+
+        #[test]
+        fn approx_flush_single_threaded() {
+            static COUNTER: ApproxCounter = ApproxCounter::new(0, 1024);
+            assert_eq!(COUNTER.get(), 0);
+            COUNTER.inc();
+            COUNTER.flush_local_counter();
+            assert_eq!(COUNTER.get(), 1);
+        }
+
+        #[test]
+        fn approx_count_to_50000_single_threaded() {
+            const NUM_THREADS: usize = 1;
+            const LOCAL_ACC: usize = 1024;
+            const GLOBAL_ACC: usize = LOCAL_ACC * NUM_THREADS;
+            static COUNTER: ApproxCounter = ApproxCounter::new(0, LOCAL_ACC);
+            assert_eq!(COUNTER.get(), 0);
+
+            for _ in 0..50000 {
+                COUNTER.inc();
+            }
+
+            assert!(50000 - GLOBAL_ACC <= COUNTER.get() && COUNTER.get() <= 50000 + GLOBAL_ACC);
+        }
+
+        #[test]
+        fn approx_count_to_50000_seq_threaded() {
+            const NUM_THREADS: usize = 5;
+            const LOCAL_ACC: usize = 256;
+            const GLOBAL_ACC: usize = LOCAL_ACC * NUM_THREADS;
+            static COUNTER: ApproxCounter = ApproxCounter::new(0, LOCAL_ACC);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_0.join().expect("Err joining thread");
+            assert!(10000 - GLOBAL_ACC <= COUNTER.get() && COUNTER.get() <= 10000 + GLOBAL_ACC);
+
+            let t_1 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_1.join().expect("Err joining thread");
+            assert!(20000 - GLOBAL_ACC <= COUNTER.get() && COUNTER.get() <= 20000 + GLOBAL_ACC);
+
+            let t_2 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_2.join().expect("Err joining thread");
+            assert!(30000 - GLOBAL_ACC <= COUNTER.get() && COUNTER.get() <= 30000 + GLOBAL_ACC);
+
+            let t_3 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_3.join().expect("Err joining thread");
+            assert!(40000 - GLOBAL_ACC <= COUNTER.get() && COUNTER.get() <= 40000 + GLOBAL_ACC);
+
+            let t_4 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            t_4.join().expect("Err joining thread");
+            assert!(50000 - GLOBAL_ACC <= COUNTER.get() && COUNTER.get() <= 50000 + GLOBAL_ACC);
+        }
+
+        #[test]
+        fn approx_count_to_50000_par_threaded() {
+            const NUM_THREADS: usize = 5;
+            const LOCAL_ACC: usize = 419;
+            const GLOBAL_ACC: usize = LOCAL_ACC * NUM_THREADS;
+            static COUNTER: ApproxCounter = ApproxCounter::new(0, LOCAL_ACC);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_1 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_2 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_3 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+            let t_4 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+            });
+
+            t_0.join().expect("Err joining thread");
+            t_1.join().expect("Err joining thread");
+            t_2.join().expect("Err joining thread");
+            t_3.join().expect("Err joining thread");
+            t_4.join().expect("Err joining thread");
+
+            assert!(50000 - GLOBAL_ACC <= COUNTER.get() && COUNTER.get() <= 50000 + GLOBAL_ACC);
+        }
+
+        #[test]
+        fn approx_flushed_count_to_50000_par_threaded() {
+            const LOCAL_ACC: usize = 419;
+            static COUNTER: ApproxCounter = ApproxCounter::new(0, LOCAL_ACC);
+            assert_eq!(COUNTER.get(), 0);
+
+            let t_0 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush_local_counter();
+            });
+            let t_1 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush_local_counter();
+            });
+            let t_2 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush_local_counter();
+            });
+            let t_3 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush_local_counter();
+            });
+            let t_4 = std::thread::spawn(|| {
+                for _ in 0..10000 {
+                    COUNTER.inc();
+                }
+                COUNTER.flush_local_counter();
+            });
+
+            t_0.join().expect("Err joining thread");
+            t_1.join().expect("Err joining thread");
+            t_2.join().expect("Err joining thread");
+            t_3.join().expect("Err joining thread");
+            t_4.join().expect("Err joining thread");
+
+            assert_eq!(50000, COUNTER.get());
+        }
 
         #[test]
         fn primitive_new_const() {
