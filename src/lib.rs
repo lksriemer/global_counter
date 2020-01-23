@@ -1,8 +1,11 @@
 //! This crate implements global, thread-safe counters.
 //! 
-//! Concerning performance, the general ranking is:
+//! Concerning performance, the general ranking is, from fastest to slowest:
 //! 
-//! [FlushingCounter](primitive/struct.FlushingCounter.html) (fastest) > [ApproxCounter](primitive/struct.ApproxCounter.html) >> typed primitive::Counter >>> [Counter](generic/struct.Counter.html) (slowest)
+//! * [FlushingCounter](primitive/struct.FlushingCounter.html)
+//! * [ApproxCounter](primitive/struct.ApproxCounter.html)
+//! * [Atomic counter from primitive](primitive/index.html)
+//! * [Counter](generic/struct.Counter.html)
 //! 
 //! Don't forget to make your own benchmarks.
 
@@ -37,13 +40,13 @@ pub mod primitive {
     /// A flushing counter.
     ///
     /// This counter is intended to be used in one specific way:
-    /// * First, all counting threads increment the counter
-    /// * Then, every counting thread calls `flush` after it is done incrementing
-    /// * Then, after every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the starting offset)
+    /// * First, all counting threads increment the counter.
+    /// * Every counting thread calls `flush` after it is done incrementing.
+    /// * Then, after every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the start offset).
     ///
     /// In theory, this counter is equivalent to an approximate counter with its resolution set to infinity.
     /// 
-    /// This counter is ony available for usize, if you need other types drop by the repo and open an issue.
+    /// This counter is only available for usize, if you need other types drop by the repo and open an issue.
     /// I wasn't able to think of a reason why somebody would want to flush count using i8s.
     pub struct FlushingCounter {
         global_counter: AtomicUsize,
@@ -112,7 +115,7 @@ pub mod primitive {
     /// which can be used to manually flush the local counter of the current thread, increasing the accuracy,
     /// and ultimately making it possible to achieve absolute accuracy.
     ///
-    /// This counter is ony available for usize, if you need other types drop by the repo and open an issue.
+    /// This counter is only available for usize, if you need other types drop by the repo and open an issue.
     /// I wasn't able to think of a reason why somebody would want to approximately count using i8s.
     pub struct ApproxCounter {
         threshold: usize,
@@ -165,8 +168,8 @@ pub mod primitive {
 
         /// Flushes the local counter to the global.
         ///
-        /// Note that this only means the local counter of the thread calling is flushed. If you want to flush the local counters of N threads,
-        /// each thread needs to call this.
+        /// Note that this only means the local counter of the thread calling is flushed. If you want to flush the local counters of multiple threads,
+        /// each thread needs to call this method.
         ///
         /// If every thread which incremented this counter has flushed its local counter, and no other increments have been made or are being made,
         /// a subsequent call to `get` is guaranteed to return the exact count.
