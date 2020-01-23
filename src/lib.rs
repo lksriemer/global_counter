@@ -183,6 +183,11 @@ pub mod primitive {
                 *tlc = 0;
             });
         }
+
+        // There is no set/reset method, as it would not be compatible with the guarantees made.
+        // Specifically, setting the global counter without setting all local counters too, which is hardly possible, 
+        // would result in the counter going 'out of sync', resulting in an approximation to high.
+        // TODO: Evalaute, if exposing a set_local, set_global API would be useful and/or idiomatic.
     }
 
     macro_rules! primitive_counter {
