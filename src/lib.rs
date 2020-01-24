@@ -127,9 +127,6 @@ pub mod primitive {
     }
 
     impl ApproxCounter {
-        // TODO: Evaluate which atomic ordering is the minimum upholding all these guarantees.
-        // Proof needed, altough relaxed seems to pass all tests.
-
         /// Creates a new counter, with the given start value and resolution. Can be used in static contexts.
         #[inline]
         pub const fn new(start: usize, resolution: usize) -> Self {
@@ -152,7 +149,7 @@ pub mod primitive {
                 let tlc = &mut *tlc.get();
                 *tlc += 1;
                 if *tlc >= self.threshold {
-                    self.global_counter.fetch_add(*tlc, Ordering::SeqCst);
+                    self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
                     *tlc = 0;
                 }
             });
@@ -163,7 +160,7 @@ pub mod primitive {
         /// Especially note, that two calls to `get` with one `inc` interleaved are not guaranteed to, and almost certainely wont, return different values.
         #[inline]
         pub fn get(&self) -> usize {
-            self.global_counter.load(Ordering::SeqCst)
+            self.global_counter.load(Ordering::Relaxed)
         }
 
         /// Flushes the local counter to the global.
@@ -179,7 +176,7 @@ pub mod primitive {
         pub fn flush(&self) {
             self.thread_local_counter.with(|tlc| unsafe {
                 let tlc = &mut *tlc.get();
-                self.global_counter.fetch_add(*tlc, Ordering::SeqCst);
+                self.global_counter.fetch_add(*tlc, Ordering::Relaxed);
                 *tlc = 0;
             });
         }
