@@ -7,7 +7,7 @@ use std::sync::Mutex;
 /// This trait promises incrementing behaviour.
 /// Implemented for standard integer types.
 /// The current value is mutated, becoming the new, incremented value.
-/// 
+///
 /// Implement this trait for the types you want to generically count on.
 pub trait Inc {
     fn inc(&mut self);
@@ -29,13 +29,13 @@ macro_rules! imp {
 imp![u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize];
 
 /// A generic, gobal counter.
-/// 
+///
 /// This counter holds up rusts guarantees of freedom of data-races. Any caveats are clearly pointed out in the documentation.
-/// 
+///
 /// This counter is implemented using a Mutex, which can be slow if a lot of contention is involved.
-/// To circumvent this, consider extracting the 'counted parts' of your struct into primitives, 
+/// To circumvent this, consider extracting the 'counted parts' of your struct into primitives,
 /// which can then be counted by much faster primitive counters. Abstracting can then restore the original interface.
-/// 
+///
 /// Avoid premature optimzation!
 #[derive(Debug, Default)]
 pub struct Counter<T: Inc>(Mutex<T>);
