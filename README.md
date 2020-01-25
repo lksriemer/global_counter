@@ -2,7 +2,7 @@
 
 [Documentation](https://docs.rs/global_counter/*/global_counter/)
 
-This crate implements global counters, generic and primitive, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex (by default) and the stdlibs atomic types.
+This crate implements global counters, generic and primitive, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex (by default) and the stdlibs atomic types. Faster counters, which trade accuracy for performance are also available.
 
 ## Usage
 
