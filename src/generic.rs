@@ -7,6 +7,8 @@ use std::sync::Mutex;
 /// This trait promises incrementing behaviour.
 /// Implemented for standard integer types.
 /// The current value is mutated, becoming the new, incremented value.
+/// 
+/// Implement this trait for the types you want to generically count on.
 pub trait Inc {
     fn inc(&mut self);
 }
@@ -26,15 +28,19 @@ macro_rules! imp {
 
 imp![u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize];
 
-/// A generic counter.
-///
-/// This counter is `Send + Sync` regardless of its contents, meaning it is always globally available from all threads, concurrently.
-///
-/// Implement `Inc` by supplying an impl for incrementing your type, this implementation does not need to be thread-safe.
+/// A generic, gobal counter.
+/// 
+/// This counter holds up rusts guarantees of freedom of data-races. Any caveats are clearly pointed out in the documentation.
+/// 
+/// This counter is implemented using a Mutex, which can be slow if a lot of contention is involved.
+/// To circumvent this, consider extracting the 'counted parts' of your struct into primitives, 
+/// which can then be counted by much faster primitive counters. Abstracting can then restore the original interface.
+/// 
+/// Avoid premature optimzation!
 #[derive(Debug, Default)]
 pub struct Counter<T: Inc>(Mutex<T>);
 
-/// Creates a new generic, global counter, starting from the given value.
+/// Creates a new global, generic counter, starting from the given value.
 ///
 /// # Example
 /// ```
@@ -58,7 +64,7 @@ macro_rules! global_counter {
     };
 }
 
-/// Creates a new generic, global counter, starting from its (inherited) default value.
+/// Creates a new generic, global counter, starting from its default value.
 ///
 /// This macro will fail compilation if the given type is not `Default`.
 ///
@@ -99,6 +105,7 @@ impl<T: Inc> Counter<T> {
     /// If `T` is not `Clone`, this is the only way to access the current value of the counter.
     ///
     /// **Warning**: Attempting to access the counter from the thread holding this borrow will result in a deadlock or panic.
+    /// This is usual mutex behaviour.
     /// As long as this borrow is alive, no accesses to the counter from any thread are possible.
     ///
     /// # Good Example - Borrow goes out of scope

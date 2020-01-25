@@ -13,7 +13,7 @@ macro_rules! flushing_counter {
             /// This counter is intended to be used in one specific way:
             /// * First, all counting threads increment the counter.
             /// * Every counting thread calls `flush` after it is done incrementing.
-            /// * Then, after every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the start offset).
+            /// * After every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the start offset).
             ///
             /// In theory, this counter is equivalent to an approximate counter with its resolution set to infinity.
             pub struct $counter {
@@ -21,6 +21,7 @@ macro_rules! flushing_counter {
 
                 // This could also be a RefCell, but this impl is also safe- or at least I hope so-
                 // and more efficient, as no runtime borrowchecking is needed.
+                // Concernig the primitive types, this could also be unsigned- but probably doesn't matter from a perf perspective.
                 thread_local_counter: &'static LocalKey<UnsafeCell<$primitive>>,
             }
 
@@ -53,8 +54,6 @@ macro_rules! flushing_counter {
                 }
 
                 /// Flushes the local counter to the global.
-                ///
-                /// For more information, see the struct-level documentation.
                 #[inline]
                 pub fn flush(&self) {
                     self.thread_local_counter.with(|tlc| unsafe {
@@ -82,9 +81,9 @@ macro_rules! approx_counter {
             ///
             /// `|get - (actual + start)| <= num_threads * (resolution - 1)`
             ///
-            /// This is the only guarantee made.
+            /// With resolution being >= 1. This is the only guarantee made.
             ///
-            /// Setting the resolution to 1 will just make it a worse primitive counter, don't do that. Increasing the resolution increases this counters performance.
+            /// Setting the resolution to 0 or 1 will just make it a worse primitive counter, don't do that. Increasing the resolution increases this counters performance.
             ///
             /// This counter also features a `flush` method,
             /// which can be used to manually flush the local counter of the current thread, increasing the accuracy,
@@ -143,7 +142,7 @@ macro_rules! approx_counter {
                 ///
                 /// If every thread which incremented this counter has flushed its local counter, and no other increments have been made or are being made,
                 /// a subsequent call to `get` is guaranteed to return the exact count.
-                /// However, if you can make use of this, consider if a `FlushingCounter` fits your usecase better.
+                /// However, if you can make use of this, consider if a flushing counter fits your usecase better.
                 // TODO: Introduce example(s).
                 #[inline]
                 pub fn flush(&self) {

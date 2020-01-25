@@ -2,12 +2,12 @@
 //!
 //! Concerning performance, the general ranking is, from fastest to slowest:
 //!
-//! * [FlushingCounter](primitive/struct.FlushingCounter.html)
-//! * [ApproxCounter](primitive/struct.ApproxCounter.html)
-//! * [Exact primitive atomic counter](primitive/index.html)
-//! * [Counter](generic/struct.Counter.html)
+//! * [Flushing primitive counters](primitive/fast/index.html)
+//! * [Approximate primitive counters](primitive/fast/index.html)
+//! * [Exact primitive atomic counters](primitive/exact/index.html)
+//! * [Generic counter](generic/struct.Counter.html)
 //!
-//! Don't forget to make your own benchmarks.
+//! Don't forget to make your own benchmarks, as those are very specific to the computing system in general and, in this case, to the OS in specific.
 
 extern crate lazy_static;
 
@@ -17,10 +17,10 @@ extern crate lazy_static;
 #[doc(hidden)]
 pub use lazy_static::*;
 
-/// This module contains a generic, thread-safe counter and the accompanying `Inc` trait.
+/// This module contains a global, generic counter and the accompanying `Inc` trait.
 pub mod generic;
 
-/// This module contains exact atomic counters for primitive integer types.
+/// This module contains global counters for primitive integer types.
 pub mod primitive;
 
 // Hack for macro export.
