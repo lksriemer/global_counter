@@ -132,7 +132,7 @@ fn main() {
 #[macro_use]
 extern crate global_counter;
 
-use global_counter::primitive::CounterUsize;
+use global_counter::primitive::exact::CounterUsize;
 use std::sync::{Arc, Mutex};
 
 fn main() {
