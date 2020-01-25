@@ -38,7 +38,8 @@ impl FlushingCounter {
         self.thread_local_counter.with(|tlc| unsafe {
             // This is safe, because concurrent accesses to a thread-local are obviously not possible,
             // and aliasing is not possible using the counters API.
-            *tlc.get() += 1;
+            let tlc = &mut *tlc.get();
+            *tlc += 1;
         });
     }
 
