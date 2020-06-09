@@ -141,7 +141,7 @@ macro_rules! approx_counter {
                 /// Note that this only means the local counter of the thread calling is flushed. If you want to flush the local counters of multiple threads,
                 /// each thread needs to call this method.
                 ///
-                /// If every thread which incremented this counter has flushed its local counter, and no other increments have been made or are being made,
+                /// If every thread which incremented this counter has flushed its local counter, and no other increments have been made nor are being made,
                 /// a subsequent call to `get` is guaranteed to return the exact count.
                 /// However, if you can make use of this, consider if a flushing counter fits your usecase better.
                 // TODO: Introduce example(s).

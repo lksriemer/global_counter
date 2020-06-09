@@ -1,3 +1,5 @@
+#![allow(unused_macros)]
+
 #[cfg(parking_lot)]
 use parking_lot::Mutex;
 
@@ -57,6 +59,14 @@ pub struct Counter<T: Inc>(Mutex<T>);
 #[macro_export]
 macro_rules! global_counter {
     ($name:ident, $type:ident, $value:expr) => {
+        static $name: ::global_counter::global_counter_macro_dependencies::Lazy<::global_counter::generic::Counter<$type>> =
+        ::global_counter::global_counter_macro_dependencies::Lazy::new(|| ::global_counter::generic::Counter::new($value));
+    };
+}
+
+// A hack for local usage.
+macro_rules! global_counter_2 {
+    ($name:ident, $type:ident, $value:expr) => {
         use once_cell::sync::Lazy;
         static $name: Lazy<Counter<$type>> =
             Lazy::new(|| Counter::new($value));
@@ -82,6 +92,13 @@ macro_rules! global_counter {
 macro_rules! global_default_counter {
     ($name:ident, $type:ident) => {
         global_counter!($name, $type, $type::default());
+    };
+}
+
+// A hack for local usage.
+macro_rules! global_default_counter_2{
+    ($name:ident, $type:ident) => {
+        global_counter_2!($name, $type, $type::default());
     };
 }
 
@@ -240,7 +257,6 @@ impl<T: Inc + Default> Counter<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
     use crate::generic::Counter;
 
     // TODO: Clean up this mess.
@@ -263,19 +279,19 @@ mod tests {
 
     #[test]
     fn get_borrowed_doesnt_clone() {
-        global_default_counter!(COUNTER, PanicOnClone);
+        global_default_counter_2!(COUNTER, PanicOnClone);
         assert_eq!(*COUNTER.get_borrowed(), PanicOnClone(0));
     }
 
     #[test]
     fn get_mut_borrowed_doesnt_clone() {
-        global_counter!(COUNTER, PanicOnClone, PanicOnClone(0));
+        global_counter_2!(COUNTER, PanicOnClone, PanicOnClone(0));
         assert_eq!(*COUNTER.get_mut_borrowed(), PanicOnClone(0));
     }
 
     #[test]
     fn count_to_five_single_threaded() {
-        global_default_counter!(COUNTER, u32);
+        global_default_counter_2!(COUNTER, u32);
         assert_eq!(COUNTER.get_cloned(), 0);
         COUNTER.inc();
         assert_eq!(COUNTER.get_cloned(), 1);
@@ -308,7 +324,7 @@ mod tests {
 
     #[test]
     fn count_struct() {
-        global_default_counter!(COUNTER, Bar);
+        global_default_counter_2!(COUNTER, Bar);
         assert_eq!(
             COUNTER.get_cloned(),
             Baz {
@@ -366,7 +382,7 @@ mod tests {
 
     #[test]
     fn count_to_50000_single_threaded() {
-        global_default_counter!(COUNTER, u32);
+        global_default_counter_2!(COUNTER, u32);
         assert_eq!(COUNTER.get_cloned(), 0);
 
         for _ in 0..50000 {
@@ -378,7 +394,7 @@ mod tests {
 
     #[test]
     fn count_to_five_seq_threaded() {
-        global_default_counter!(COUNTER, u32);
+        global_default_counter_2!(COUNTER, u32);
         assert_eq!(COUNTER.get_cloned(), 0);
 
         let t_0 = std::thread::spawn(|| {
@@ -414,7 +430,7 @@ mod tests {
 
     #[test]
     fn count_to_50000_seq_threaded() {
-        global_default_counter!(COUNTER, u32);
+        global_default_counter_2!(COUNTER, u32);
         assert_eq!(COUNTER.get_cloned(), 0);
 
         let t_0 = std::thread::spawn(|| {
@@ -460,7 +476,7 @@ mod tests {
 
     #[test]
     fn count_to_five_par_threaded() {
-        global_default_counter!(COUNTER, u32);
+        global_default_counter_2!(COUNTER, u32);
         assert_eq!(COUNTER.get_cloned(), 0);
 
         let t_0 = std::thread::spawn(|| {
@@ -490,7 +506,7 @@ mod tests {
 
     #[test]
     fn count_to_50000_par_threaded() {
-        global_default_counter!(COUNTER, u32);
+        global_default_counter_2!(COUNTER, u32);
         assert_eq!(COUNTER.get_cloned(), 0);
 
         let t_0 = std::thread::spawn(|| {
@@ -530,7 +546,7 @@ mod tests {
 
     #[test]
     fn reset() {
-        global_default_counter!(COUNTER, u32);
+        global_default_counter_2!(COUNTER, u32);
         assert_eq!(COUNTER.get_cloned(), 0);
         COUNTER.inc();
         assert_eq!(COUNTER.get_cloned(), 1);
