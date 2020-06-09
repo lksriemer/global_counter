@@ -3,6 +3,76 @@ use std::sync::atomic::{
     AtomicU8, AtomicUsize, Ordering,
 };
 
+// TODO: Uncomment this implementation to swap it in for the one below as soon as if is allowed in const fn (should be in 1.45).
+// This boosts get performance by ~15% on my machine.
+
+// macro_rules! primitive_counter {
+//         ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
+//             $(
+//                 /// An atomic primitive counter.
+//                 ///
+//                 /// This counter makes all the same guarantees a generic counter does.
+//                 /// Especially, calling `inc` N times from different threads will always result in the counter effectively being incremented by N.
+//                 /// The counters `get` method will always return exactly the amount of times, `inc` has been called (+ start offset), up to this moment.
+//                 ///
+//                 /// Please note that Atomics may, depending on your compilation target, not be implemented using atomic instructions
+//                 /// (See [here](https://llvm.org/docs/Atomics.html), 'Atomics and Codegen', l.7-11).
+//                 /// Meaning, although lock-freedom is always guaranteed, wait-freedom is not.
+//                 ///
+//                 /// The given atomic ordering is rusts [core::sync::atomic::Ordering](https://doc.rust-lang.org/core/sync/atomic/enum.Ordering.html),
+//                 /// with `AcqRel` translating to `AcqRel`, `Acq` or `Rel`, depending on the operation performed.
+//                 ///
+//                 /// This counter should in general be superior in performance, compared to the equivalent generic counter.
+//                 #[derive(Debug)]
+//                 pub struct $counter($atomic, Ordering ,Ordering, Ordering);
+
+//                 impl $counter{
+//                     /// Creates a new primitive counter. Can be used in const contexts.
+//                     /// Uses the default `Ordering::SeqCst`, making the strongest ordering guarantees.
+//                     #[inline]
+//                     pub const fn new(val : $primitive) -> $counter{
+//                         $counter($atomic::new(val), Ordering::SeqCst ,Ordering::SeqCst ,Ordering::SeqCst)
+//                     }
+
+//                     /// Creates a new primitive counter with the given atomic ordering. Can be used in const contexts.
+//                     ///
+//                     /// Possible orderings are `Relaxed`, `AcqRel` and `SeqCst`.
+//                     /// Supplying an other ordering is undefined behaviour.
+//                     #[inline]
+//                     pub const fn with_ordering(val : $primitive, ordering : Ordering) -> $counter{
+//                         let store_ord = match ordering{ Ordering::AcqRel => Ordering::Release ,other => other };
+//                         let load_ord = match ordering{ Ordering::AcqRel => Ordering::Acquire ,other => other };
+//                         $counter($atomic::new(val), load_ord, ordering, store_ord)
+//                     }
+
+//                     /// Gets the current value of the counter.
+//                     #[inline]
+//                     pub fn get(&self) -> $primitive{
+//                         self.0.load(self.1)
+//                     }
+
+//                     /// Sets the counter to a new value.
+//                     #[inline]
+//                     pub fn set(&self, val : $primitive){
+//                         self.0.store(val, self.3);
+//                     }
+
+//                     /// Increments the counter by one, returning the previous value.
+//                     #[inline]
+//                     pub fn inc(&self) -> $primitive{
+//                         self.0.fetch_add(1, self.2)
+//                     }
+
+//                     /// Resets the counter to zero.
+//                     #[inline]
+//                     pub fn reset(&self){
+//                         self.0.store(0, self.3);
+//                     }
+//                 }
+//             )*
+//         };
+//     }
+
 macro_rules! primitive_counter {
         ($( $primitive:ident $atomic:ident $counter:ident ), *) => {
             $(
