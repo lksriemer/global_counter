@@ -14,3 +14,11 @@ pub mod generic;
 
 /// This module contains global counters for primitive integer types.
 pub mod primitive;
+
+// Hack for macro export.
+#[doc(hidden)]
+pub mod global_counter_macro_dependencies {
+    pub type Lazy<T> = once_cell::sync::Lazy<T>;
+}
+
+
