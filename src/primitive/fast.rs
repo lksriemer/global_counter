@@ -21,7 +21,6 @@ macro_rules! flushing_counter {
 
                 // This could also be a RefCell, but this impl is also safe- or at least I hope so-
                 // and more efficient, as no runtime borrowchecking is needed.
-                // Concernig the primitive types, this could also be unsigned- but probably doesn't matter from a perf perspective.
                 thread_local_counter: &'static LocalKey<UnsafeCell<$primitive>>,
             }
 
@@ -100,6 +99,8 @@ macro_rules! approx_counter {
             }
             impl $counter {
                 /// Creates a new counter, with the given start value and resolution. Can be used in static contexts.
+                ///
+                /// The start value is a lower bound for the value returned by `get`, not guaranteed to be the exact value on subsequent calls.
                 #[inline]
                 pub const fn new(start: $primitive, resolution: $resolution) -> Self {
                     thread_local!(pub static TL_COUNTER : UnsafeCell<$resolution> = UnsafeCell::new(0));

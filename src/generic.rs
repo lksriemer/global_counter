@@ -36,7 +36,7 @@ imp![u8 u16 u32 u64 u128 usize i8 i16 i32 i64 i128 isize];
 /// To circumvent this, consider extracting the 'counted parts' of your struct into primitives,
 /// which can then be counted by much faster primitive counters. Abstracting can then restore the original interface.
 ///
-/// Avoid premature optimzation!
+/// Avoid premature optimzation though!
 #[derive(Debug, Default)]
 pub struct Counter<T: Inc>(Mutex<T>);
 
@@ -58,8 +58,8 @@ pub struct Counter<T: Inc>(Mutex<T>);
 macro_rules! global_counter {
     ($name:ident, $type:ident, $value:expr) => {
         use once_cell::sync::Lazy;
-        static $name: Lazy<global_counter::generic::Counter<$type>> =
-            Lazy::new(|| global_counter::generic::Counter::new($value));
+        static $name: Lazy<Counter<$type>> =
+            Lazy::new(|| Counter::new($value));
     };
 }
 
@@ -86,7 +86,7 @@ macro_rules! global_default_counter {
 }
 
 impl<T: Inc> Counter<T> {
-    /// Creates a new generic counter
+    /// Creates a new generic counter.
     ///
     /// This function is not const yet. As soon as [Mutex::new()](https://docs.rs/lock_api/*/lock_api/struct.Mutex.html#method.new) is stable as `const fn`, this will be as well, if the `parking_lot` feature is not disabled.
     /// Then, the exported macros will no longer be needed.
@@ -207,15 +207,14 @@ impl<T: Inc> Counter<T> {
     #[cfg(not(parking_lot))]
     #[inline]
     fn lock(&self) -> impl std::ops::DerefMut<Target = T> + '_ {
-        self.0.lock().unwrap()
+        self.0.lock().expect("Global counter lock failed. This indicates another user paniced while holding a lock to the counter.")
     }
 }
 
 impl<T: Inc + Clone> Counter<T> {
     /// This avoid the troubles of [get_borrowed](struct.Counter.html#method.get_borrowed) by cloning the current value.
     ///
-    /// Creating a deadlock using this API should be impossible.
-    /// The downside of this approach is the cost of a forced clone which may, depending on your use case, not be affordable.
+    /// Creating a deadlock using this API should be impossible, it might however violate implicit synchronization assumptions.
     #[inline]
     pub fn get_cloned(&self) -> T {
         self.lock().clone()
@@ -224,8 +223,9 @@ impl<T: Inc + Clone> Counter<T> {
     /// Increments the counter, returning the previous value, cloned.
     #[inline]
     pub fn inc_cloning(&self) -> T {
-        let prev = self.get_cloned();
-        self.inc();
+        let mut locked = self.lock();
+        let prev = locked.clone();
+        locked.inc();
         prev
     }
 }
@@ -241,6 +241,7 @@ impl<T: Inc + Default> Counter<T> {
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use crate::generic::Counter;
 
     // TODO: Clean up this mess.
     // Maybe move all test helper structs to an extra module.
@@ -268,7 +269,7 @@ mod tests {
 
     #[test]
     fn get_mut_borrowed_doesnt_clone() {
-        global_default_counter!(COUNTER, PanicOnClone);
+        global_counter!(COUNTER, PanicOnClone, PanicOnClone(0));
         assert_eq!(*COUNTER.get_mut_borrowed(), PanicOnClone(0));
     }
 
