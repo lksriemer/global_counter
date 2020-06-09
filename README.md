@@ -2,7 +2,7 @@
 
 [Documentation](https://docs.rs/global_counter/*/global_counter/)
 
-This crate implements global counters, generic and primitive, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex (by default) and the stdlibs atomic types. Faster counters, which trade accuracy for performance are also available.
+This crate implements global counters, generic and primitive, which build on thoroughly tested synchronization primitives, namely `parking_lot`s Mutex (by default) and the stdlibs atomic types. Faster counters, which trade accuracy for performance, are also available. Refer to the documentation for details.
 
 ## Usage
 
@@ -10,7 +10,7 @@ Add the following dependency to your Cargo.toml file:
 
 ```toml
 [dependencies]
-global_counter = "0.2.0"
+global_counter = "0.2.1"
 ```
 
 Use the `#[macro_use]` annotation when importing, like this:
@@ -24,7 +24,7 @@ If you want to disable using `parking_lot`, and instead use the stdlibs Mutex, d
 
 ```toml
 [dependencies.global_counter]
-version = "0.2.0"
+version = "0.2.1"
 default-features = false
 ```
 
@@ -33,8 +33,14 @@ default-features = false
 ### Create a counter
 
 ```rust
+use global_counter::generic::Counter;
+use global_counter::primitive::exact::CounterI16;
+
 // Generic
 global_counter!(COUTER_NAME, CountedType, CountedType::default());
+
+// If you feel funny, you can also create a generic global counter without a macro.
+// Take a look at the implemtation of the macro, it's simply wrapping in a once_cell::sync::Lazy<...>.
 
 // Primitive
 static COUNTER_NAME : CounterI16 = CounterI16::new(0);
@@ -50,10 +56,65 @@ COUNTER_NAME.inc();
 
 ```rust
 // Generic
+let val_borrowed = COUNTER_NAME.get_borrowed();
+// Or
 let val = COUNTER_NAME.get_cloned();
 
 // Primitive
 let val = COUNTER_NAME.get();
+
+```
+
+## Example - Primitive counter used for indexing into vec from multiple threads
+
+```rust
+#[macro_use]
+extern crate global_counter;
+
+use global_counter::primitive::exact::CounterUsize;
+use std::sync::{Arc, Mutex};
+
+fn main() {
+    // This is a primitive counter. Implemented using atomics, more efficient than its generic equivalent.
+    // Available for primitive integer types.
+    static COUNTER: CounterUsize = CounterUsize::new(0);
+
+    // We want to copy the 'from' arr to the 'to' arr. From multiple threads.
+    // Please don't do this in actual code.
+    let from = Arc::new(Mutex::new(vec![1, 5, 22, 10000, 43, -4, 39, 1, 2]));
+    let to = Arc::new(Mutex::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]));
+
+    // 3 elements each in two other threads + 3 elements in this thread.
+    // After joining those two threads, all elements will have been copied.
+    let to_arc = to.clone();
+    let from_arc = from.clone();
+    let t1 = std::thread::spawn(move || {
+        // '.inc()' increments the counter, returning the previous value.
+        let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
+        for &i in indices.iter() {
+            to_arc.lock().unwrap()[i] = from_arc.lock().unwrap()[i];
+        }
+    });
+
+    let to_arc = to.clone();
+    let from_arc = from.clone();
+    let t2 = std::thread::spawn(move || {
+        let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
+        for &i in indices.iter() {
+            to_arc.lock().unwrap()[i] = from_arc.lock().unwrap()[i];
+        }
+    });
+
+    let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
+    for &i in indices.iter() {
+        to.lock().unwrap()[i] = from.lock().unwrap()[i];
+    }
+
+    t1.join().unwrap();
+    t2.join().unwrap();
+
+    assert_eq!(**to.lock().unwrap(), **from.lock().unwrap());
+}
 ```
 
 ## Example - No cloning of counted struct
@@ -62,11 +123,11 @@ let val = COUNTER_NAME.get();
 #[macro_use]
 extern crate global_counter;
 
-use global_counter::generic::Inc;
+use global_counter::generic::{Counter, Inc};
 use std::collections::LinkedList;
 use std::iter::FromIterator;
 
-// Note how this (supposedly) doesnt implement `Clone`.
+// Note how this (supposedly) doesn't implement `Clone`.
 #[derive(Debug, PartialEq, Eq)]
 struct CardinalityCountedList(LinkedList<()>);
 
@@ -89,11 +150,11 @@ impl CardinalityCountedList {
 }
 
 // We create a new global, thread-safe Counter.
-// Could also do this in the main fn.
+// Could also do this in the main fn or wherever.
 global_counter!(
-    COUNTER,
-    CardinalityCountedList,
-    CardinalityCountedList::with_cardinality(0)
+    COUNTER, // Name
+    CardinalityCountedList, // Type
+    CardinalityCountedList::with_cardinality(0) // Initial value
 );
 
 fn main() {
@@ -126,57 +187,10 @@ fn main() {
 }
 ```
 
-## Example - Primitive counter used for indexing into vec from multiple threads
+## Changelog
 
-```rust
-#[macro_use]
-extern crate global_counter;
-
-use global_counter::primitive::exact::CounterUsize;
-use std::sync::{Arc, Mutex};
-
-fn main() {
-    // This is a primitive counter. Implemented using atomics, more efficient than its generic equivalent.
-    // Available for primitive integer types.
-    static COUNTER: CounterUsize = CounterUsize::new(0);
-
-    // We want to copy the 'from' arr to the 'to' arr. From multiple threads.
-    // Please don't do this in actual code.
-    let from = Arc::new(Mutex::new(vec![1, 5, 22, 10000, 43, -4, 39, 1, 2]));
-    let to = Arc::new(Mutex::new(vec![0, 0, 0, 0, 0, 0, 0, 0, 0]));
-
-    // 3 elemets in two other threads + 3 elements in this thread.
-    // After joining those two threads, all elements will have been copied.
-    let to_arc = to.clone();
-    let from_arc = from.clone();
-    let t1 = std::thread::spawn(move || {
-        // '.inc()' increments the counter, returning the previous value.
-        let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
-        for &i in indices.iter() {
-            to_arc.lock().unwrap()[i] = from_arc.lock().unwrap()[i];
-        }
-    });
-
-    let to_arc = to.clone();
-    let from_arc = from.clone();
-    let t2 = std::thread::spawn(move || {
-        let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
-        for &i in indices.iter() {
-            to_arc.lock().unwrap()[i] = from_arc.lock().unwrap()[i];
-        }
-    });
-
-    let indices = [COUNTER.inc(), COUNTER.inc(), COUNTER.inc()];
-    for &i in indices.iter() {
-        to.lock().unwrap()[i] = from.lock().unwrap()[i];
-    }
-
-    t1.join().unwrap();
-    t2.join().unwrap();
-
-    assert_eq!(**to.lock().unwrap(), **from.lock().unwrap());
-}
-```
+This library is still being developed. A detailed changelog will be introduced, once a relatively stable state is reached.
+Treat every version bump as a breaking change.
 
 ## License
 
