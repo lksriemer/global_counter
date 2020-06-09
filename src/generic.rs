@@ -57,10 +57,9 @@ pub struct Counter<T: Inc>(Mutex<T>);
 #[macro_export]
 macro_rules! global_counter {
     ($name:ident, $type:ident, $value:expr) => {
-        lazy_static! {
-            static ref $name: global_counter::generic::Counter<$type> =
-                global_counter::generic::Counter::new($value);
-        }
+        use once_cell::sync::Lazy;
+        static $name: Lazy<global_counter::generic::Counter<$type>> =
+            Lazy::new(|| global_counter::generic::Counter::new($value));
     };
 }
 
@@ -81,11 +80,8 @@ macro_rules! global_counter {
 /// ```
 #[macro_export]
 macro_rules! global_default_counter {
-    ($name:ident, $type:ty) => {
-        lazy_static! {
-            static ref $name: global_counter::generic::Counter<$type> =
-                global_counter::generic::Counter::default();
-        }
+    ($name:ident, $type:ident) => {
+        global_counter!($name, $type, $type::default());
     };
 }
 

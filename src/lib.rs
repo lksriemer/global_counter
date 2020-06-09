@@ -9,14 +9,6 @@
 //!
 //! Don't forget to make your own benchmarks, as those are very specific to the computing system in general and, in this case, to the OS in specific.
 
-extern crate lazy_static;
-
-// We need to pub use lazy_static, as global_(default_)counter! is expanded to a lazy_static! call.
-// Absolute paths wont help here.
-// TODO: Think of a way to only pub reexport the lazy_static! macro.
-#[doc(hidden)]
-pub use lazy_static::*;
-
 /// This module contains a global, generic counter and the accompanying `Inc` trait.
 pub mod generic;
 
