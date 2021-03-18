@@ -10,7 +10,7 @@ Add the following dependency to your Cargo.toml file:
 
 ```toml
 [dependencies]
-global_counter = "0.2.1"
+global_counter = "0.2.2"
 ```
 
 Use the `#[macro_use]` annotation when importing, like this:
@@ -24,7 +24,7 @@ If you want to disable using `parking_lot`, and instead use the stdlibs Mutex, d
 
 ```toml
 [dependencies.global_counter]
-version = "0.2.1"
+version = "0.2.2"
 default-features = false
 ```
 
@@ -191,6 +191,10 @@ fn main() {
 
 This library is still being developed. A detailed changelog will be introduced, once a relatively stable state is reached.
 Treat every version bump as a breaking change.
+
+## Minimum Rust version
+
+Starting with version 0.2.2, this crate requires Rust version 1.46 or up to be compiled.
 
 ## License
 
