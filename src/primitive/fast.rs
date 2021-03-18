@@ -136,6 +136,7 @@ macro_rules! approx_counter {
                 pub fn get(&self) -> $primitive {
                     self.global_counter.load(Ordering::Relaxed)
                 }
+
                 /// Flushes the local counter to the global.
                 ///
                 /// Note that this only means the local counter of the thread calling is flushed. If you want to flush the local counters of multiple threads,
@@ -167,6 +168,12 @@ approx_counter![u8 AtomicU8 ApproxCounterU8 u8, u16 AtomicU16 ApproxCounterU16 u
 mod tests {
 
     use super::*;
+
+    macro_rules! within_tolerance {
+        ($val:expr, $expected:expr, $tol:expr) => {
+            ($expected) - ($tol) <= ($val) && ($val) <= ($expected) + ($val)
+        };
+    }
 
     #[test]
     fn approx_new_const() {
@@ -203,6 +210,32 @@ mod tests {
             COUNTER.inc();
         }
         assert!(COUNTER.get() > 0);
+    }
+
+    #[test]
+    fn approx_different_counters() {
+        const NUM_THREADS: u32 = 1;
+        const LOCAL_ACC: u32 = 1024;
+        const GLOBAL_ACC: u32 = LOCAL_ACC * NUM_THREADS;
+        static COUNTER: ApproxCounterU32 = ApproxCounterU32::new(0, LOCAL_ACC);
+        assert_eq!(COUNTER.get(), 0);
+
+        for _ in 0..50000 {
+            COUNTER.inc();
+        }
+
+        assert!(within_tolerance!(COUNTER.get(), 50000, GLOBAL_ACC));
+
+        static COUNTER_2: ApproxCounterU32 = ApproxCounterU32::new(0, LOCAL_ACC);
+        assert!(within_tolerance!(COUNTER_2.get(), 0, 0));
+        assert!(within_tolerance!(COUNTER.get(), 50000, GLOBAL_ACC));
+
+        for _ in 0..50000 {
+            COUNTER_2.inc();
+        }
+
+        assert!(within_tolerance!(COUNTER_2.get(), 50000, GLOBAL_ACC));
+        assert!(within_tolerance!(COUNTER.get(), 50000, GLOBAL_ACC));
     }
 
     #[test]
@@ -365,6 +398,31 @@ mod tests {
     fn flushing_new_const() {
         static COUNTER: FlushingCounterUsize = FlushingCounterUsize::new(0);
         assert_eq!(COUNTER.get(), 0);
+    }
+
+    #[test]
+    fn flushing_different_counters() {
+        static COUNTER: FlushingCounterU32 = FlushingCounterU32::new(0);
+        assert_eq!(COUNTER.get(), 0);
+
+        for _ in 0..50000 {
+            COUNTER.inc();
+        }
+        COUNTER.flush();
+
+        assert!(within_tolerance!(COUNTER.get(), 50000, 0));
+
+        static COUNTER_2: FlushingCounterU32 = FlushingCounterU32::new(0);
+        assert!(within_tolerance!(COUNTER_2.get(), 0, 0));
+        assert!(within_tolerance!(COUNTER.get(), 50000, 0));
+
+        for _ in 0..50000 {
+            COUNTER_2.inc();
+        }
+        COUNTER_2.flush();
+
+        assert!(within_tolerance!(COUNTER_2.get(), 50000, 0));
+        assert!(within_tolerance!(COUNTER.get(), 50000, 0));
     }
 
     #[test]
