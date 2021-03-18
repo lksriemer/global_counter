@@ -1,6 +1,6 @@
 [package]
 name = "global_counter"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Lukas Riemer <lksriemer@gmail.com>"]
 description = "Global, thread-safe counters"
 repository = "https://github.com/LukiRe/global_counter"
