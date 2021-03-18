@@ -16,6 +16,12 @@ macro_rules! flushing_counter {
             /// * After every flush is guaranteed to have been executed, `get` will return the exact amount of times `inc` has been called (+ the start offset).
             ///
             /// In theory, this counter is equivalent to an approximate counter with its resolution set to infinity.
+            ///
+            /// Note that this counters `inc` - `flush` - `get` - path does not induce a happens-before relationship,
+            /// as defined by the C++ standard.
+            /// In other words, it is not safe to rely solely on this counter for the synchronization of external data.
+            /// The most important example of this is spinning until a certain value is reached,
+            /// which does not guarantee _any_ other operations to be visible to the reading thread.
             pub struct $counter {
                 global_counter: $atomic,
 
@@ -70,7 +76,7 @@ flushing_counter![u8 AtomicU8 FlushingCounterU8, u16 AtomicU16 FlushingCounterU1
 macro_rules! approx_counter {
     ($( $primitive:ident $atomic:ident $counter:ident $resolution:ty), *) => {
         $(
-            /// An approximate counter.
+            /// A global approximate counter.
             ///
             /// This counter operates by having a local counter for each thread, which is occasionally flushed to the main global counter.
             ///
@@ -84,9 +90,9 @@ macro_rules! approx_counter {
             ///
             /// Setting the resolution to 0 or 1 will just make it a worse primitive counter, don't do that. Increasing the resolution increases this counters performance.
             ///
-            /// This counter also features a `flush` method,
-            /// which can be used to manually flush the local counter of the current thread, increasing the accuracy,
-            /// and ultimately making it possible to achieve absolute accuracy
+            /// This counter also features a `flush` method, which can be used to manually flush the local counter of the current thread.
+            ///
+            /// Note that this counters `inc` - (`flush`) - `get` - path does not induce a happens-before relationship, just like the flushing counters.
             pub struct $counter {
                 // Always making the resolution unsigned was a deliberate choice.
                 // The resolution is used to upper-bound an absolute value. It cannot be negative.
@@ -97,19 +103,21 @@ macro_rules! approx_counter {
                 // and more efficient, as no runtime borrowchecking is needed.
                 thread_local_counter: &'static LocalKey<UnsafeCell<$resolution>>,
             }
+
             impl $counter {
                 /// Creates a new counter, with the given start value and resolution. Can be used in static contexts.
                 ///
                 /// The start value is a lower bound for the value returned by `get`, not guaranteed to be the exact value on subsequent calls.
                 #[inline]
                 pub const fn new(start: $primitive, resolution: $resolution) -> Self {
-                    thread_local!(pub static TL_COUNTER : UnsafeCell<$resolution> = UnsafeCell::new(0));
+                    thread_local!(static TL_COUNTER : UnsafeCell<$resolution> = UnsafeCell::new(0));
                     $counter {
                         threshold: resolution,
                         global_counter: $atomic::new(start),
                         thread_local_counter: &TL_COUNTER,
                     }
                 }
+
                 /// Increments the counter by one.
                 ///
                 /// Note that this call will probably leave the value returned by `get` unchanged.
@@ -121,14 +129,14 @@ macro_rules! approx_counter {
                         let tlc = &mut *tlc.get();
                         *tlc += 1;
                         if *tlc >= self.threshold {
-                            // These as-casts will be optimized away if the primitive is also unsigned.
-                            // Otherwise, they will only occur on this non-hot path.
-                            // Same in `flush`.
+                            // If tlc overflows as signed variant, it is still fine to reinterpret it as unsigned.
+                            // It should never actually be negative given this API.
                             self.global_counter.fetch_add(*tlc as $primitive, Ordering::Relaxed);
                             *tlc = 0;
                         }
                     });
                 }
+
                 /// Gets the current value of the counter. For more information, see the struct-level documentation.
                 ///
                 /// Especially note, that two calls to `get` with one `inc` interleaved are not guaranteed to, and almost certainely wont, return different values.
